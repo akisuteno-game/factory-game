@@ -163,6 +163,8 @@ canvas.addEventListener("pointerdown",e=>{
 
   startX=p.x;
   startY=p.y;
+  lastX=p.x;
+  lastY=p.y;
 
   pressTimer=setTimeout(()=>{
     remove(p.x,p.y);
@@ -174,7 +176,7 @@ canvas.addEventListener("pointermove",e=>{
 
   const p=getPos(e);
 
-  if(p.x!==startX || p.y!==startY){
+  if(Math.abs(p.x-startX)+Math.abs(p.y-startY) >= 1){
     moved=true;
     clearTimeout(pressTimer);
   }
@@ -183,7 +185,10 @@ canvas.addEventListener("pointermove",e=>{
 
   if(p.x===lastX && p.y===lastY) return;
 
-  place(p.x,p.y);
+  handleInput({
+    clientX:e.clientX,
+    clientY:e.clientY
+  });
 
   lastX=p.x;
   lastY=p.y;
@@ -212,19 +217,11 @@ function handleInput(e){
   else place(x,y);
 }
 
+//（以下すべて元のまま）
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
-
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-
-  items.push({
-    x:m.x+0.5,
-    y:m.y+0.5,
-    dx:d[0],
-    dy:d[1],
-    p:0,
-    type:m.type
-  });
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
 }
 
 function nextTile(it){
@@ -234,29 +231,20 @@ function nextTile(it){
 function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
-
     if(m.id==='miner' && power>0 && m.cool===0){
-      spawn(m);
-      m.cool=40;
-      power--;
+      spawn(m); m.cool=40; power--;
     }
-
     if(m.id==='power'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
-          if(it.type==='coal'){
-            power+=10;
-            it.dead=true;
-          }
+          if(it.type==='coal'){ power+=10; it.dead=true; }
         }
       });
     }
-
     if(m.id==='storage'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
-          RES[it.type]++;
-          it.dead=true;
+          RES[it.type]++; it.dead=true;
         }
       });
     }
@@ -264,40 +252,25 @@ function update(){
 
   items.forEach(it=>{
     it.p+=0.05;
-
     if(it.p>=1){
       const next=nextTile(it);
-
-      if(!next){
-        it.p=0.99;
-        return;
-      }
-
+      if(!next){ it.p=0.99; return; }
       const nx=Math.floor(it.x+it.dx);
       const ny=Math.floor(it.y+it.dy);
+      if(countItems(nx,ny)>=MAX_PER_TILE){ it.p=0.99; return; }
 
-      if(countItems(nx,ny)>=MAX_PER_TILE){
-        it.p=0.99;
-        return;
-      }
-
-      it.x+=it.dx;
-      it.y+=it.dy;
-      it.p=0;
+      it.x+=it.dx; it.y+=it.dy; it.p=0;
 
       if(next.id==='conveyor'){
         const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
-        it.dx=d[0];
-        it.dy=d[1];
+        it.dx=d[0]; it.dy=d[1];
       }
-
       if(next.id==='splitter'){
         const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
         const side=next.toggle?1:-1;
         next.toggle=1-next.toggle;
         const d=dirs[(next.dir+side+4)%4];
-        it.dx=d[0];
-        it.dy=d[1];
+        it.dx=d[0]; it.dy=d[1];
       }
     }
   });
@@ -369,7 +342,6 @@ function draw(){
 
   machines.forEach(m=>{
     const px=m.x*CELL,py=m.y*CELL;
-
     ctx.fillStyle=
       m.id==='miner'?"#6a3":
       m.id==='power'?"#a33":
@@ -379,7 +351,6 @@ function draw(){
     ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
 
     ctx.fillStyle="#fff";
-
     if(m.id==='miner') ctx.fillText("⛏",px+15,py+30);
     if(m.id==='power') ctx.fillText("⚡",px+15,py+30);
     if(m.id==='storage') ctx.fillText("📦",px+15,py+30);
