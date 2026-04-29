@@ -42,6 +42,7 @@ canvas{
   display:block;
   margin:auto;
   background:#222;
+  touch-action:none;
 }
 
 #settings{
@@ -139,6 +140,50 @@ function remove(x,y){
 
 function rotate(m){m.dir=(m.dir+1)%4}
 
+// ===== 操作改善ここから =====
+let dragging=false;
+let lastX=-1,lastY=-1;
+let pressTimer=null;
+
+function getPos(e){
+  const r=canvas.getBoundingClientRect();
+  return {
+    x:Math.floor((e.clientX-r.left)/CELL),
+    y:Math.floor((e.clientY-r.top)/CELL)
+  };
+}
+
+canvas.addEventListener("pointerdown",e=>{
+  const p=getPos(e);
+  dragging=true;
+  lastX=p.x; lastY=p.y;
+
+  pressTimer=setTimeout(()=>{
+    remove(p.x,p.y);
+  },400);
+
+  handleInput(e);
+});
+
+canvas.addEventListener("pointermove",e=>{
+  if(!dragging) return;
+
+  const p=getPos(e);
+  if(p.x===lastX && p.y===lastY) return;
+
+  clearTimeout(pressTimer); // 動いたら長押し解除
+
+  handleInput(e);
+  lastX=p.x; lastY=p.y;
+});
+
+canvas.addEventListener("pointerup",()=>{
+  dragging=false;
+  clearTimeout(pressTimer);
+});
+
+// ===== 操作改善ここまで =====
+
 function handleInput(e){
   const r=canvas.getBoundingClientRect();
   const x=Math.floor((e.clientX-r.left)/CELL);
@@ -149,8 +194,6 @@ function handleInput(e){
   if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
   else place(x,y);
 }
-
-canvas.addEventListener("click", handleInput);
 
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
