@@ -101,34 +101,39 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== ここだけ変更（ランダム鉱脈）=====
+// ===== ここだけ変更（塊生成）=====
 const resourceNodes=[];
 
-function generateClusters(type,count){
-  for(let i=0;i<count;i++){
-    const baseX=Math.floor(Math.random()*COLS);
-    const baseY=Math.floor(Math.random()*ROWS);
+function generateCluster(type){
+  const baseX=Math.floor(Math.random()*COLS);
+  const baseY=Math.floor(Math.random()*ROWS);
 
-    const size=4+Math.floor(Math.random()*3); // 4〜6
+  const cluster=[{x:baseX,y:baseY}];
 
-    for(let j=0;j<size;j++){
-      const dx=Math.floor(Math.random()*3)-1;
-      const dy=Math.floor(Math.random()*3)-1;
+  while(cluster.length<3){
+    const base=cluster[Math.floor(Math.random()*cluster.length)];
 
-      const x=baseX+dx;
-      const y=baseY+dy;
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const d=dirs[Math.floor(Math.random()*dirs.length)];
 
-      if(x<0||y<0||x>=COLS||y>=ROWS) continue;
-      if(resourceNodes.find(n=>n.x===x&&n.y===y)) continue;
+    const nx=base.x+d[0];
+    const ny=base.y+d[1];
 
-      resourceNodes.push({x,y,type});
-    }
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+    if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
+
+    cluster.push({x:nx,y:ny});
   }
+
+  cluster.forEach(n=>{
+    resourceNodes.push({x:n.x,y:n.y,type});
+  });
 }
 
-generateClusters("iron",5);
-generateClusters("coal",5);
-// =====================================
+// 鉄3塊・石炭3塊
+for(let i=0;i<3;i++) generateCluster("iron");
+for(let i=0;i<3;i++) generateCluster("coal");
+// =================================
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
