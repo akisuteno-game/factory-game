@@ -59,7 +59,8 @@ function place(x,y){
   const m={
     id:selected,x,y,dir:0,cool:0,
     type:node?.type||"iron",
-    fuel:0, toggle:0
+    fuel: (selected==='power'?20:0), // 👈 初期燃料
+    toggle:0
   };
 
   machines.push(m);
@@ -92,16 +93,15 @@ canvas.addEventListener("touchstart",(e)=>{
   handleInput(e.touches[0]);
 });
 
-// ⚡ 電力判定（範囲）
+// ⚡ 電力判定
 function hasPower(x,y){
   return machines.some(m=>{
     if(m.id!=='power') return false;
     const dx=m.x-x, dy=m.y-y;
-    return (dx*dx+dy*dy)<=9 && m.fuel>0; // 半径3
+    return (dx*dx+dy*dy)<=9 && m.fuel>0;
   });
 }
 
-// アイテム生成
 function spawn(m){
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
   items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
@@ -111,14 +111,13 @@ function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
 
-    // 採掘（電力必要）
     if(m.id==='miner' && hasPower(m.x,m.y) && m.cool===0){
       spawn(m);
       m.cool=40;
     }
 
-    // 発電
     if(m.id==='power'){
+      // 石炭補給
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
           if(it.type==='coal'){
@@ -127,9 +126,14 @@ function update(){
           }
         }
       });
+
+      // 燃料消費
+      if(m.fuel>0 && m.cool===0){
+        m.fuel--;
+        m.cool=30;
+      }
     }
 
-    // 倉庫
     if(m.id==='storage'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
@@ -140,31 +144,21 @@ function update(){
     }
   });
 
-  // アイテム移動
   items.forEach(it=>{
     it.p+=0.05;
-
     if(it.p>=1){
       it.x+=it.dx; it.y+=it.dy; it.p=0;
-
       const t=get(Math.floor(it.x),Math.floor(it.y));
-
       if(t){
         if(t.id==='conveyor'){
           const d=[[1,0],[0,1],[-1,0],[0,-1]][t.dir];
           it.dx=d[0]; it.dy=d[1];
         }
-
-        // 分岐
         if(t.id==='splitter'){
-          const dirs=[
-            [1,0],[0,1],[-1,0],[0,-1]
-          ];
-          const base=t.dir;
+          const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
           const side = t.toggle?1:-1;
-          t.toggle = 1-t.toggle;
-
-          const d = dirs[(base+side+4)%4];
+          t.toggle=1-t.toggle;
+          const d=dirs[(t.dir+side+4)%4];
           it.dx=d[0]; it.dy=d[1];
         }
       }else{
@@ -188,7 +182,6 @@ function draw(){
     }
   }
 
-  // 資源
   resourceNodes.forEach(n=>{
     ctx.fillStyle=n.type==="iron"?"#555":"#111";
     ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
