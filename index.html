@@ -10,7 +10,6 @@ body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
 button{padding:10px;border-radius:8px;border:none;background:#333;color:#fff}
 canvas{display:block;margin:auto;background:#222}
 .active{background:#5a5}
-
 #panel{
 position:fixed;
 top:10px;right:10px;
@@ -29,6 +28,8 @@ border-radius:10px;
   <button onclick="selectTool('power')" id="btn-power">発電</button>
   <button onclick="selectTool('storage')" id="btn-storage">倉庫</button>
   <button onclick="selectTool('delete')" id="btn-delete">削除</button>
+  <button onclick="saveGame()">💾保存</button>
+  <button onclick="loadGame()">📂読込</button>
 </div>
 
 <div id="panel"></div>
@@ -36,6 +37,8 @@ border-radius:10px;
 
 <script>
 const CELL=50, COLS=16, ROWS=10;
+const MAX_PER_TILE = 3; // 👈 詰まり制限
+
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 
@@ -55,6 +58,10 @@ const resourceNodes=[
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
+
+function countItems(x,y){
+  return items.filter(it=>Math.floor(it.x)===x && Math.floor(it.y)===y).length;
+}
 
 function selectTool(t){
   selected=t;
@@ -103,6 +110,7 @@ canvas.addEventListener("touchstart",(e)=>{
 });
 
 function spawn(m){
+  if(countItems(m.x,m.y)>=MAX_PER_TILE) return; // 👈 詰まり防止
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
   items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
 }
@@ -145,12 +153,20 @@ function update(){
   items.forEach(it=>{
     it.p+=0.05;
 
-    // 👇 進む前にチェック
     if(it.p>=1){
       const next = nextTile(it);
 
+      // 👇 次がない → 完全停止
       if(!next){
-        it.p=1; // ここで止まる
+        it.p=0.99;
+        return;
+      }
+
+      // 👇 次が詰まってる → 待つ
+      const nx=Math.floor(it.x+it.dx);
+      const ny=Math.floor(it.y+it.dy);
+      if(countItems(nx,ny)>=MAX_PER_TILE){
+        it.p=0.99;
         return;
       }
 
@@ -178,6 +194,41 @@ function update(){
   }
 }
 
+// 💾 セーブ
+function saveGame(){
+  if(machines.length===0){
+    alert("空は保存できない");
+    return;
+  }
+  localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
+}
+
+// 📂 ロード
+function loadGame(){
+  const data=JSON.parse(localStorage.getItem("factorySave"));
+  if(!data) return;
+
+  machines.length=0;
+  Object.keys(grid).forEach(k=>delete grid[k]);
+
+  data.machines.forEach(m=>{
+    machines.push(m);
+    grid[key(m.x,m.y)]=m;
+  });
+
+  RES.iron=data.RES.iron;
+  RES.coal=data.RES.coal;
+  power=data.power;
+}
+
+// UI
+function drawUI(){
+  document.getElementById("panel").innerHTML=
+    "鉄:"+RES.iron+"<br>"+
+    "石炭:"+RES.coal+"<br>"+
+    "⚡:"+power;
+}
+
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -191,8 +242,6 @@ function draw(){
   resourceNodes.forEach(n=>{
     ctx.fillStyle=n.type==="iron"?"#555":"#111";
     ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
-    ctx.fillStyle="#fff";
-    ctx.fillText(n.type==="iron"?"鉄":"石炭",n.x*CELL+5,n.y*CELL+20);
   });
 
   machines.forEach(m=>{
@@ -222,10 +271,7 @@ function draw(){
     ctx.fillRect(px-6,py-3,12,6);
   });
 
-  document.getElementById("panel").innerHTML=
-    "鉄:"+RES.iron+"<br>"+
-    "石炭:"+RES.coal+"<br>"+
-    "⚡:"+power;
+  drawUI();
 }
 
 function loop(){
