@@ -101,55 +101,47 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 資源（5マス塊＋間隔あり）=====
+// ===== 資源（エリア分割＋5マス塊）=====
 const resourceNodes=[];
 
-function generateCluster(type){
-  while(true){
-    const cx=Math.floor(Math.random()*COLS);
-    const cy=Math.floor(Math.random()*ROWS);
+function generateClusterInArea(type, minX, maxX, minY, maxY){
+  const cx = Math.floor(Math.random()*(maxX-minX)) + minX;
+  const cy = Math.floor(Math.random()*(maxY-minY)) + minY;
 
-    const cluster=[{x:cx,y:cy}];
+  const cluster=[{x:cx,y:cy}];
 
-    while(cluster.length<5){
-      const base=cluster[Math.floor(Math.random()*cluster.length)];
-      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-      const d=dirs[Math.floor(Math.random()*4)];
+  while(cluster.length<5){
+    const base=cluster[Math.floor(Math.random()*cluster.length)];
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const d=dirs[Math.floor(Math.random()*4)];
 
-      const nx=base.x+d[0];
-      const ny=base.y+d[1];
+    const nx=base.x+d[0];
+    const ny=base.y+d[1];
 
-      if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
-      if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
+    if(nx<minX||ny<minY||nx>=maxX||ny>=maxY) continue;
+    if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
 
-      cluster.push({x:nx,y:ny});
-    }
-
-    // 他の塊と距離を取る
-    let ok=true;
-    for(const c of cluster){
-      for(const n of resourceNodes){
-        if(Math.abs(c.x-n.x)<=2 && Math.abs(c.y-n.y)<=2){
-          ok=false;
-          break;
-        }
-      }
-      if(!ok) break;
-    }
-
-    if(!ok) continue;
-
-    cluster.forEach(n=>{
-      resourceNodes.push({x:n.x,y:n.y,type});
-    });
-
-    break;
+    cluster.push({x:nx,y:ny});
   }
+
+  cluster.forEach(n=>{
+    resourceNodes.push({x:n.x,y:n.y,type});
+  });
 }
 
-// 鉄3塊・石炭3塊
-for(let i=0;i<3;i++) generateCluster("iron");
-for(let i=0;i<3;i++) generateCluster("coal");
+// 3×2分割
+const w = Math.floor(COLS/3);
+const h = Math.floor(ROWS/2);
+
+// 上段（鉄）
+generateClusterInArea("iron", 0, w, 0, h);
+generateClusterInArea("iron", w, w*2, 0, h);
+generateClusterInArea("iron", w*2, COLS, 0, h);
+
+// 下段
+generateClusterInArea("coal", 0, w, h, ROWS);
+generateClusterInArea("coal", w*2, COLS, h, ROWS);
+generateClusterInArea("iron", w, w*2, h, ROWS);
 // =================================
 
 function key(x,y){return x+","+y}
@@ -198,7 +190,7 @@ function getPos(e){
   };
 }
 
-// ===== 設定ボタン修正 =====
+// ===== 設定修正 =====
 function toggleSettings(){
   const el=document.getElementById("settings");
   if(el.style.display==="block"){
