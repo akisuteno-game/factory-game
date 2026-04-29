@@ -101,42 +101,50 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 6分割＋5マス塊生成 =====
-const resourceNodes=[];
+// ===== 無限マップ用：資源を動的生成 =====
+const resourceNodes={};
 
-function makeCluster(startX,startY,type){
-  const cluster=[{x:startX,y:startY}];
+function rkey(x,y){return x+","+y}
 
-  while(cluster.length<5){
-    const base=cluster[Math.floor(Math.random()*cluster.length)];
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    const d=dirs[Math.floor(Math.random()*4)];
+function getResource(x,y){
+  const k=rkey(x,y);
+  if(resourceNodes[k]) return resourceNodes[k];
 
-    const nx=base.x+d[0];
-    const ny=base.y+d[1];
+  // シンプルな疑似乱数（座標ベース）
+  const seed=(x*928371 + y*12377) % 100;
 
-    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
-    if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
+  let type=null;
 
-    cluster.push({x:nx,y:ny});
+  // 6分割風に分布
+  if(seed<10) type="iron";
+  else if(seed<18) type="coal";
+
+  if(type){
+    resourceNodes[k]={x,y,type};
+    return resourceNodes[k];
   }
 
-  cluster.forEach(n=>resourceNodes.push({x:n.x,y:n.y,type}));
+  return null;
+}
+// =====================================
+
+// ===== 設定ボタン修正 =====
+function toggleSettings(){
+  const el=document.getElementById("settings");
+  el.style.display = el.style.display==="none" ? "block" : "none";
 }
 
-// 分割
-const w=COLS/2;
-const h=ROWS/3;
+function saveGame(){
+  localStorage.setItem("factorySave",JSON.stringify({
+    machines,items,RES,power,camX,camY
+  }));
+}
 
-// 鉄（右上・左上・中央下）
-makeCluster(2,2,"iron");
-makeCluster(w+2,2,"iron");
-makeCluster(w/2,h*2+2,"iron");
-
-// 石炭（右下・左下）
-makeCluster(2,h+2,"coal");
-makeCluster(w+2,h+2,"coal");
-// ==========================
+function resetGame(){
+  localStorage.clear();
+  location.reload();
+}
+// =====================================
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
@@ -154,7 +162,7 @@ function selectTool(t){
 function place(x,y){
   if(get(x,y)) return;
 
-  const node=resourceNodes.find(n=>n.x===x&&n.y===y);
+  const node=getResource(x,y);
   if(selected==='miner' && !node) return;
 
   const m={
@@ -424,17 +432,22 @@ function draw(){
   ctx.save();
   ctx.translate(-camX*CELL, -camY*CELL);
 
-  for(let x=0;x<COLS;x++){
-    for(let y=0;y<ROWS;y++){
+  // 無限風グリッド
+  const startX=Math.floor(camX);
+  const startY=Math.floor(camY);
+
+  for(let x=startX-1;x<startX+COLS+1;x++){
+    for(let y=startY-1;y<startY+ROWS+1;y++){
       ctx.strokeStyle="#333";
       ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
+
+      const n=getResource(x,y);
+      if(n){
+        ctx.fillStyle=n.type==="iron"?"#555":"#111";
+        ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+      }
     }
   }
-
-  resourceNodes.forEach(n=>{
-    ctx.fillStyle=n.type==="iron"?"#555":"#111";
-    ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
-  });
 
   machines.forEach(m=>{
     const px=m.x*CELL,py=m.y*CELL;
