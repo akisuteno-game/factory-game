@@ -10,6 +10,15 @@ body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
 button{padding:10px;border-radius:8px;border:none;background:#333;color:#fff}
 canvas{display:block;margin:auto;background:#222}
 .active{background:#5a5}
+
+#panel{
+position:fixed;
+top:10px;right:10px;
+background:#000a;
+padding:10px;
+border-radius:10px;
+font-size:14px;
+}
 </style>
 </head>
 <body>
@@ -21,7 +30,11 @@ canvas{display:block;margin:auto;background:#222}
   <button onclick="selectTool('power')" id="btn-power">発電</button>
   <button onclick="selectTool('storage')" id="btn-storage">倉庫</button>
   <button onclick="selectTool('delete')" id="btn-delete">削除</button>
+  <button onclick="saveGame()">💾保存</button>
+  <button onclick="loadGame()">📂読込</button>
 </div>
+
+<div id="panel"></div>
 
 <canvas id="c"></canvas>
 
@@ -37,6 +50,8 @@ let selected='miner';
 
 const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
+
+let power=50; // 👈 初期電力
 
 const resourceNodes=[
   {x:3,y:3,type:"iron"},
@@ -59,8 +74,7 @@ function place(x,y){
   const m={
     id:selected,x,y,dir:0,cool:0,
     type:node?.type||"iron",
-    fuel:(selected==='power'?20:0),
-    toggle:0
+    fuel:0,toggle:0
   };
 
   machines.push(m);
@@ -93,24 +107,6 @@ canvas.addEventListener("touchstart",(e)=>{
   handleInput(e.touches[0]);
 });
 
-// ⚡ 電力範囲チェック
-function hasPower(x,y){
-  return machines.some(m=>{
-    if(m.id!=='power') return false;
-    const dx=m.x-x, dy=m.y-y;
-    return (dx*dx+dy*dy)<=9 && m.fuel>0;
-  });
-}
-
-// ⚡ 合計電力（UI用）
-function totalPower(){
-  let sum=0;
-  machines.forEach(m=>{
-    if(m.id==='power') sum+=m.fuel;
-  });
-  return sum;
-}
-
 function spawn(m){
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
   items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
@@ -120,27 +116,26 @@ function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
 
-    if(m.id==='miner' && hasPower(m.x,m.y) && m.cool===0){
+    // 採掘（電力消費）
+    if(m.id==='miner' && power>0 && m.cool===0){
       spawn(m);
       m.cool=40;
+      power--;
     }
 
+    // 発電（石炭→電力）
     if(m.id==='power'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
           if(it.type==='coal'){
-            m.fuel+=10;
+            power+=10;
             it.dead=true;
           }
         }
       });
-
-      if(m.fuel>0 && m.cool===0){
-        m.fuel--;
-        m.cool=30;
-      }
     }
 
+    // 倉庫
     if(m.id==='storage'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
@@ -179,6 +174,41 @@ function update(){
   }
 }
 
+// 💾 セーブ
+function saveGame(){
+  const data={
+    machines,RES,power
+  };
+  localStorage.setItem("factorySave",JSON.stringify(data));
+  alert("保存した！");
+}
+
+// 📂 ロード
+function loadGame(){
+  const data=JSON.parse(localStorage.getItem("factorySave"));
+  if(!data) return;
+
+  machines.length=0;
+  Object.keys(grid).forEach(k=>delete grid[k]);
+
+  data.machines.forEach(m=>{
+    machines.push(m);
+    grid[key(m.x,m.y)]=m;
+  });
+
+  RES.iron=data.RES.iron;
+  RES.coal=data.RES.coal;
+  power=data.power;
+}
+
+// UIパネル
+function drawUI(){
+  document.getElementById("panel").innerHTML=
+    "鉄: "+RES.iron+"<br>"+
+    "石炭: "+RES.coal+"<br>"+
+    "⚡電力: "+power;
+}
+
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -192,8 +222,6 @@ function draw(){
   resourceNodes.forEach(n=>{
     ctx.fillStyle=n.type==="iron"?"#555":"#111";
     ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
-    ctx.fillStyle="#fff";
-    ctx.fillText(n.type==="iron"?"鉄":"石炭",n.x*CELL+5,n.y*CELL+20);
   });
 
   machines.forEach(m=>{
@@ -211,10 +239,6 @@ function draw(){
       ctx.fillStyle="#fff";
       ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
     }
-
-    if(m.id==='power'){
-      ctx.fillText("⚡"+m.fuel,px+5,py+20);
-    }
   });
 
   items.forEach(it=>{
@@ -224,14 +248,7 @@ function draw(){
     ctx.fillRect(px-6,py-3,12,6);
   });
 
-  // 👇 UI表示復活
-  ctx.fillStyle="#fff";
-  ctx.fillText(
-    "鉄:"+RES.iron+
-    " 石炭:"+RES.coal+
-    " ⚡"+totalPower(),
-    10,20
-  );
+  drawUI();
 }
 
 function loop(){
