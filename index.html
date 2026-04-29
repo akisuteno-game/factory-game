@@ -6,14 +6,8 @@
 <title>Factory Lite+</title>
 
 <style>
-body{
-  margin:0;
-  background:#1a1a18;
-  color:#eee;
-  font-family:sans-serif;
-}
+body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
 
-/* 上UI */
 #ui{
   display:flex;
   flex-wrap:wrap;
@@ -31,11 +25,8 @@ button{
   color:#fff;
 }
 
-.active{
-  background:#5a5;
-}
+.active{background:#5a5}
 
-/* 情報パネル */
 #panel{
   position:fixed;
   right:10px;
@@ -49,7 +40,6 @@ button{
   border:1px solid #333;
 }
 
-/* キャンバス */
 canvas{
   display:block;
   margin:auto;
@@ -69,7 +59,6 @@ canvas{
   <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
 
   <button onclick="saveGame()">💾 保存</button>
-  <button onclick="loadGame()">📂 読込</button>
 </div>
 
 <div id="panel"></div>
@@ -245,14 +234,13 @@ function update(){
   }
 }
 
+// 保存
 function saveGame(){
-  if(machines.length===0){
-    alert("空は保存できない");
-    return;
-  }
+  if(machines.length===0) return;
   localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
 }
 
+// 読込
 function loadGame(){
   const data=JSON.parse(localStorage.getItem("factorySave"));
   if(!data) return;
@@ -269,6 +257,12 @@ function loadGame(){
   RES.coal=data.RES.coal;
   power=data.power;
 }
+
+// 自動ロード（起動時）
+loadGame();
+
+// オートセーブ
+setInterval(saveGame,5000);
 
 function drawUI(){
   document.getElementById("panel").innerHTML=
