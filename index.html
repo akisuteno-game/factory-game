@@ -101,14 +101,11 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 資源（エリア分割＋5マス塊）=====
+// ===== 6分割＋5マス塊生成 =====
 const resourceNodes=[];
 
-function generateClusterInArea(type, minX, maxX, minY, maxY){
-  const cx = Math.floor(Math.random()*(maxX-minX)) + minX;
-  const cy = Math.floor(Math.random()*(maxY-minY)) + minY;
-
-  const cluster=[{x:cx,y:cy}];
+function makeCluster(startX,startY,type){
+  const cluster=[{x:startX,y:startY}];
 
   while(cluster.length<5){
     const base=cluster[Math.floor(Math.random()*cluster.length)];
@@ -118,31 +115,28 @@ function generateClusterInArea(type, minX, maxX, minY, maxY){
     const nx=base.x+d[0];
     const ny=base.y+d[1];
 
-    if(nx<minX||ny<minY||nx>=maxX||ny>=maxY) continue;
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
     if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
 
     cluster.push({x:nx,y:ny});
   }
 
-  cluster.forEach(n=>{
-    resourceNodes.push({x:n.x,y:n.y,type});
-  });
+  cluster.forEach(n=>resourceNodes.push({x:n.x,y:n.y,type}));
 }
 
-// 3×2分割
-const w = Math.floor(COLS/3);
-const h = Math.floor(ROWS/2);
+// 分割
+const w=COLS/2;
+const h=ROWS/3;
 
-// 上段（鉄）
-generateClusterInArea("iron", 0, w, 0, h);
-generateClusterInArea("iron", w, w*2, 0, h);
-generateClusterInArea("iron", w*2, COLS, 0, h);
+// 鉄（右上・左上・中央下）
+makeCluster(2,2,"iron");
+makeCluster(w+2,2,"iron");
+makeCluster(w/2,h*2+2,"iron");
 
-// 下段
-generateClusterInArea("coal", 0, w, h, ROWS);
-generateClusterInArea("coal", w*2, COLS, h, ROWS);
-generateClusterInArea("iron", w, w*2, h, ROWS);
-// =================================
+// 石炭（右下・左下）
+makeCluster(2,h+2,"coal");
+makeCluster(w+2,h+2,"coal");
+// ==========================
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
@@ -188,16 +182,6 @@ function getPos(e){
     x:Math.floor((e.clientX-r.left)/CELL + camX),
     y:Math.floor((e.clientY-r.top)/CELL + camY)
   };
-}
-
-// ===== 設定修正 =====
-function toggleSettings(){
-  const el=document.getElementById("settings");
-  if(el.style.display==="block"){
-    el.style.display="none";
-  }else{
-    el.style.display="block";
-  }
 }
 
 // ===== PC操作 =====
