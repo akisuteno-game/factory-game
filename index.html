@@ -140,10 +140,13 @@ function remove(x,y){
 
 function rotate(m){m.dir=(m.dir+1)%4}
 
-// ===== 操作改善ここから =====
+// ===== 操作改善（修正版） =====
 let dragging=false;
 let lastX=-1,lastY=-1;
 let pressTimer=null;
+
+let startX,startY;
+let moved=false;
 
 function getPos(e){
   const r=canvas.getBoundingClientRect();
@@ -156,33 +159,47 @@ function getPos(e){
 canvas.addEventListener("pointerdown",e=>{
   const p=getPos(e);
   dragging=true;
-  lastX=p.x; lastY=p.y;
+  moved=false;
+
+  startX=p.x;
+  startY=p.y;
 
   pressTimer=setTimeout(()=>{
     remove(p.x,p.y);
   },400);
-
-  handleInput(e);
 });
 
 canvas.addEventListener("pointermove",e=>{
   if(!dragging) return;
 
   const p=getPos(e);
+
+  if(p.x!==startX || p.y!==startY){
+    moved=true;
+    clearTimeout(pressTimer);
+  }
+
+  if(!moved) return;
+
   if(p.x===lastX && p.y===lastY) return;
 
-  clearTimeout(pressTimer); // 動いたら長押し解除
+  place(p.x,p.y);
 
-  handleInput(e);
-  lastX=p.x; lastY=p.y;
+  lastX=p.x;
+  lastY=p.y;
 });
 
-canvas.addEventListener("pointerup",()=>{
+canvas.addEventListener("pointerup",e=>{
   dragging=false;
   clearTimeout(pressTimer);
-});
 
-// ===== 操作改善ここまで =====
+  const p=getPos(e);
+
+  if(!moved){
+    handleInput(e);
+  }
+});
+// ===== ここまで =====
 
 function handleInput(e){
   const r=canvas.getBoundingClientRect();
