@@ -17,7 +17,6 @@ top:10px;right:10px;
 background:#000a;
 padding:10px;
 border-radius:10px;
-font-size:14px;
 }
 </style>
 </head>
@@ -35,7 +34,6 @@ font-size:14px;
 </div>
 
 <div id="panel"></div>
-
 <canvas id="c"></canvas>
 
 <script>
@@ -51,7 +49,7 @@ let selected='miner';
 const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 
-let power=50; // 👈 初期電力
+let power=50;
 
 const resourceNodes=[
   {x:3,y:3,type:"iron"},
@@ -109,21 +107,19 @@ canvas.addEventListener("touchstart",(e)=>{
 
 function spawn(m){
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type,stopped:false});
 }
 
 function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
 
-    // 採掘（電力消費）
     if(m.id==='miner' && power>0 && m.cool===0){
       spawn(m);
       m.cool=40;
       power--;
     }
 
-    // 発電（石炭→電力）
     if(m.id==='power'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
@@ -135,7 +131,6 @@ function update(){
       });
     }
 
-    // 倉庫
     if(m.id==='storage'){
       items.forEach(it=>{
         if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
@@ -147,10 +142,13 @@ function update(){
   });
 
   items.forEach(it=>{
+    if(it.stopped) return;
+
     it.p+=0.05;
     if(it.p>=1){
       it.x+=it.dx; it.y+=it.dy; it.p=0;
       const t=get(Math.floor(it.x),Math.floor(it.y));
+
       if(t){
         if(t.id==='conveyor'){
           const d=[[1,0],[0,1],[-1,0],[0,-1]][t.dir];
@@ -164,7 +162,7 @@ function update(){
           it.dx=d[0]; it.dy=d[1];
         }
       }else{
-        it.dead=true;
+        it.stopped=true; // 👈 止まるだけ
       }
     }
   });
@@ -174,13 +172,14 @@ function update(){
   }
 }
 
-// 💾 セーブ
+// 💾 安全セーブ
 function saveGame(){
-  const data={
-    machines,RES,power
-  };
+  if(machines.length===0){
+    alert("空データは保存しない！");
+    return;
+  }
+  const data={machines,RES,power};
   localStorage.setItem("factorySave",JSON.stringify(data));
-  alert("保存した！");
 }
 
 // 📂 ロード
@@ -201,12 +200,18 @@ function loadGame(){
   power=data.power;
 }
 
-// UIパネル
+// オートセーブ
+setInterval(()=>{
+  if(machines.length>0){
+    localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
+  }
+},5000);
+
 function drawUI(){
   document.getElementById("panel").innerHTML=
-    "鉄: "+RES.iron+"<br>"+
-    "石炭: "+RES.coal+"<br>"+
-    "⚡電力: "+power;
+    "鉄:"+RES.iron+"<br>"+
+    "石炭:"+RES.coal+"<br>"+
+    "⚡:"+power;
 }
 
 function draw(){
