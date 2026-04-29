@@ -9,13 +9,15 @@ body{margin:0;font-family:sans-serif;background:#1a1a18;color:#eee}
 #ui{padding:8px;display:flex;gap:8px}
 button{padding:10px;border-radius:8px;border:none;background:#333;color:#fff}
 canvas{display:block;margin:auto;background:#222;touch-action:none}
+.active{background:#5a5}
 </style>
 </head>
 <body>
 
 <div id="ui">
-  <button onclick="selectTool('miner')">採掘</button>
-  <button onclick="selectTool('conveyor')">コンベア</button>
+  <button onclick="selectTool('miner')" id="btn-miner">採掘</button>
+  <button onclick="selectTool('conveyor')" id="btn-conveyor">コンベア</button>
+  <button onclick="selectTool('delete')" id="btn-delete">削除</button>
 </div>
 
 <canvas id="c"></canvas>
@@ -43,7 +45,11 @@ const resourceNodes=[
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
 
-function selectTool(t){selected=t}
+function selectTool(t){
+  selected=t;
+  document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("btn-"+t)?.classList.add("active");
+}
 
 function place(x,y){
   if(get(x,y)) return;
@@ -52,35 +58,43 @@ function place(x,y){
   grid[key(x,y)]=m;
 }
 
+function remove(x,y){
+  const k=key(x,y);
+  const m=grid[k];
+  if(!m) return;
+  delete grid[k];
+  const i=machines.indexOf(m);
+  if(i!==-1) machines.splice(i,1);
+}
+
 function rotate(m){m.dir=(m.dir+1)%4}
 
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
-
-let pressTimer;
-
-canvas.addEventListener('pointerdown',e=>{
+function handleInput(e){
   const r=canvas.getBoundingClientRect();
   const x=Math.floor((e.clientX-r.left)/CELL);
   const y=Math.floor((e.clientY-r.top)/CELL);
   const m=get(x,y);
 
-  if(e.button===2){
-    delete grid[key(x,y)];
+  if(selected==='delete'){
+    remove(x,y);
     return;
   }
-
-  pressTimer=setTimeout(()=>{
-    delete grid[key(x,y)];
-  },500);
 
   if(m && m.id==='conveyor'){
     rotate(m);
   }else{
     place(x,y);
   }
-});
+}
 
-canvas.addEventListener('pointerup',()=>clearTimeout(pressTimer));
+// PC
+canvas.addEventListener("click", handleInput);
+
+// iPad / スマホ
+canvas.addEventListener("touchstart",(e)=>{
+  e.preventDefault();
+  handleInput(e.touches[0]);
+});
 
 function getBonus(x,y){
   const n=resourceNodes.find(n=>n.x===x&&n.y===y);
@@ -153,6 +167,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
+selectTool('miner');
 loop();
 </script>
 </body>
