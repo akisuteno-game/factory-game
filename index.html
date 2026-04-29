@@ -83,14 +83,18 @@ border:1px solid #555;
 <canvas id="c"></canvas>
 
 <script>
-const CELL=50, COLS=16, ROWS=10;
+// ===== マップ拡張 =====
+const CELL=50, COLS=40, ROWS=30;
 const MAX_PER_TILE=3;
 
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 
-canvas.width=COLS*CELL;
-canvas.height=ROWS*CELL;
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight-60;
+
+let camX=0, camY=0;
+// =====================
 
 let selected='miner';
 
@@ -100,7 +104,9 @@ let power=50;
 
 const resourceNodes=[
   {x:3,y:3,type:"iron"},
-  {x:10,y:6,type:"coal"}
+  {x:10,y:6,type:"coal"},
+  {x:20,y:10,type:"iron"},
+  {x:30,y:20,type:"coal"}
 ];
 
 function key(x,y){return x+","+y}
@@ -140,23 +146,35 @@ function remove(x,y){
 
 function rotate(m){m.dir=(m.dir+1)%4}
 
-// ===== 操作改善（修正版） =====
-let dragging=false;
-let lastX=-1,lastY=-1;
-let pressTimer=null;
-
-let startX,startY;
-let moved=false;
-
+// ===== 座標補正 =====
 function getPos(e){
   const r=canvas.getBoundingClientRect();
   return {
-    x:Math.floor((e.clientX-r.left)/CELL),
-    y:Math.floor((e.clientY-r.top)/CELL)
+    x:Math.floor((e.clientX-r.left)/CELL + camX),
+    y:Math.floor((e.clientY-r.top)/CELL + camY)
   };
 }
+// ====================
+
+// ===== 操作（そのまま維持＋スクロール追加）=====
+let dragging=false;
+let lastX=-1,lastY=-1;
+let pressTimer=null;
+let startX,startY;
+let moved=false;
+
+// スクロール用
+let isPanning=false;
+let panStartX, panStartY;
 
 canvas.addEventListener("pointerdown",e=>{
+  if(e.button===1){
+    isPanning=true;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
   const p=getPos(e);
   dragging=true;
   moved=false;
@@ -172,29 +190,40 @@ canvas.addEventListener("pointerdown",e=>{
 });
 
 canvas.addEventListener("pointermove",e=>{
+  if(isPanning){
+    const dx=(e.clientX-panStartX)/CELL;
+    const dy=(e.clientY-panStartY)/CELL;
+    camX-=dx;
+    camY-=dy;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
   if(!dragging) return;
 
   const p=getPos(e);
 
-  if(Math.abs(p.x-startX)+Math.abs(p.y-startY) >= 1){
+  if(Math.abs(p.x-startX)+Math.abs(p.y-startY)>=1){
     moved=true;
     clearTimeout(pressTimer);
   }
 
   if(!moved) return;
-
   if(p.x===lastX && p.y===lastY) return;
 
-  handleInput({
-    clientX:e.clientX,
-    clientY:e.clientY
-  });
+  handleInput(e);
 
   lastX=p.x;
   lastY=p.y;
 });
 
 canvas.addEventListener("pointerup",e=>{
+  if(isPanning){
+    isPanning=false;
+    return;
+  }
+
   dragging=false;
   clearTimeout(pressTimer);
 
@@ -204,20 +233,18 @@ canvas.addEventListener("pointerup",e=>{
     handleInput(e);
   }
 });
-// ===== ここまで =====
+// ======================================
 
 function handleInput(e){
-  const r=canvas.getBoundingClientRect();
-  const x=Math.floor((e.clientX-r.left)/CELL);
-  const y=Math.floor((e.clientY-r.top)/CELL);
-  const m=get(x,y);
+  const p=getPos(e);
+  const m=get(p.x,p.y);
 
-  if(selected==='delete'){ remove(x,y); return; }
+  if(selected==='delete'){ remove(p.x,p.y); return; }
   if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
-  else place(x,y);
+  else place(p.x,p.y);
 }
 
-//（以下すべて元のまま）
+// ===== 以下ゲーム本体（完全そのまま）=====
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
@@ -328,6 +355,9 @@ function drawUI(){
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  ctx.save();
+  ctx.translate(-camX*CELL, -camY*CELL);
+
   for(let x=0;x<COLS;x++){
     for(let y=0;y<ROWS;y++){
       ctx.strokeStyle="#333";
@@ -364,6 +394,8 @@ function draw(){
     ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
     ctx.fillRect(px-6,py-3,12,6);
   });
+
+  ctx.restore();
 
   drawUI();
 }
