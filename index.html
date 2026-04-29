@@ -101,33 +101,50 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== ここだけ変更（塊生成）=====
+// ===== 資源（5マス塊＋間隔あり）=====
 const resourceNodes=[];
 
 function generateCluster(type){
-  const baseX=Math.floor(Math.random()*COLS);
-  const baseY=Math.floor(Math.random()*ROWS);
+  while(true){
+    const cx=Math.floor(Math.random()*COLS);
+    const cy=Math.floor(Math.random()*ROWS);
 
-  const cluster=[{x:baseX,y:baseY}];
+    const cluster=[{x:cx,y:cy}];
 
-  while(cluster.length<3){
-    const base=cluster[Math.floor(Math.random()*cluster.length)];
+    while(cluster.length<5){
+      const base=cluster[Math.floor(Math.random()*cluster.length)];
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+      const d=dirs[Math.floor(Math.random()*4)];
 
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    const d=dirs[Math.floor(Math.random()*dirs.length)];
+      const nx=base.x+d[0];
+      const ny=base.y+d[1];
 
-    const nx=base.x+d[0];
-    const ny=base.y+d[1];
+      if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+      if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
 
-    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
-    if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
+      cluster.push({x:nx,y:ny});
+    }
 
-    cluster.push({x:nx,y:ny});
+    // 他の塊と距離を取る
+    let ok=true;
+    for(const c of cluster){
+      for(const n of resourceNodes){
+        if(Math.abs(c.x-n.x)<=2 && Math.abs(c.y-n.y)<=2){
+          ok=false;
+          break;
+        }
+      }
+      if(!ok) break;
+    }
+
+    if(!ok) continue;
+
+    cluster.forEach(n=>{
+      resourceNodes.push({x:n.x,y:n.y,type});
+    });
+
+    break;
   }
-
-  cluster.forEach(n=>{
-    resourceNodes.push({x:n.x,y:n.y,type});
-  });
 }
 
 // 鉄3塊・石炭3塊
@@ -152,7 +169,6 @@ function place(x,y){
   if(get(x,y)) return;
 
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
-
   if(selected==='miner' && !node) return;
 
   const m={
@@ -180,6 +196,16 @@ function getPos(e){
     x:Math.floor((e.clientX-r.left)/CELL + camX),
     y:Math.floor((e.clientY-r.top)/CELL + camY)
   };
+}
+
+// ===== 設定ボタン修正 =====
+function toggleSettings(){
+  const el=document.getElementById("settings");
+  if(el.style.display==="block"){
+    el.style.display="none";
+  }else{
+    el.style.display="block";
+  }
 }
 
 // ===== PC操作 =====
