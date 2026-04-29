@@ -123,7 +123,11 @@ function selectTool(t){
 
 function place(x,y){
   if(get(x,y)) return;
+
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
+
+  // ★ここだけ追加（採掘機は資源の上のみ）
+  if(selected==='miner' && !node) return;
 
   const m={
     id:selected,x,y,dir:0,cool:0,
@@ -152,32 +156,90 @@ function getPos(e){
   };
 }
 
-// ===== タッチ操作改善 =====
-let touchMode=false;
+// ===== PC操作 =====
+let dragging=false;
+let pressTimer=null;
+let startX,startY;
+let moved=false;
+
+let isPanning=false;
+let panStartX, panStartY;
+
+canvas.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(e.button===1){
+    isPanning=true;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
+  const p=getPos(e);
+  dragging=true;
+  moved=false;
+
+  startX=p.x;
+  startY=p.y;
+
+  pressTimer=setTimeout(()=>remove(p.x,p.y),400);
+});
+
+canvas.addEventListener("pointermove",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(isPanning){
+    const dx=(e.clientX-panStartX)/CELL;
+    const dy=(e.clientY-panStartY)/CELL;
+    camX-=dx;
+    camY-=dy;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
+  if(!dragging) return;
+
+  const p=getPos(e);
+
+  if(Math.abs(p.x-startX)+Math.abs(p.y-startY)>=1){
+    moved=true;
+    clearTimeout(pressTimer);
+  }
+});
+
+canvas.addEventListener("pointerup",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(isPanning){
+    isPanning=false;
+    return;
+  }
+
+  dragging=false;
+  clearTimeout(pressTimer);
+
+  if(!moved){
+    handleInput(e);
+  }
+});
+
+// ===== スマホ操作 =====
 let singlePan=false;
-
-let startTouchX=0, startTouchY=0;
-let lastTouchX=0, lastTouchY=0;
 let touchMoved=false;
+let lastTouchX=0,lastTouchY=0;
 
-let lastMidX=0, lastMidY=0;
-let lastDist=0;
+let lastMidX=0,lastMidY=0,lastDist=0;
 
-canvas.addEventListener("touchstart", e=>{
+canvas.addEventListener("touchstart",e=>{
   if(e.touches.length===1){
-    touchMode=true;
     singlePan=true;
     touchMoved=false;
-
-    startTouchX=e.touches[0].clientX;
-    startTouchY=e.touches[0].clientY;
-
-    lastTouchX=startTouchX;
-    lastTouchY=startTouchY;
+    lastTouchX=e.touches[0].clientX;
+    lastTouchY=e.touches[0].clientY;
   }
 
   if(e.touches.length===2){
-    touchMode=true;
     singlePan=false;
 
     const t1=e.touches[0];
@@ -186,85 +248,67 @@ canvas.addEventListener("touchstart", e=>{
     lastMidX=(t1.clientX+t2.clientX)/2;
     lastMidY=(t1.clientY+t2.clientY)/2;
 
-    lastDist=Math.hypot(
-      t1.clientX-t2.clientX,
-      t1.clientY-t2.clientY
-    );
+    lastDist=Math.hypot(t1.clientX-t2.clientX,t1.clientY-t2.clientY);
   }
 });
 
-canvas.addEventListener("touchmove", e=>{
+canvas.addEventListener("touchmove",e=>{
   if(singlePan && e.touches.length===1){
     const t=e.touches[0];
 
-    const moveX=t.clientX-startTouchX;
-    const moveY=t.clientY-startTouchY;
+    const dx=t.clientX-lastTouchX;
+    const dy=t.clientY-lastTouchY;
 
-    // ★一定以上動いたらスクロール開始
-    if(Math.abs(moveX)+Math.abs(moveY) > 8){
+    if(Math.abs(dx)+Math.abs(dy)>5){
       touchMoved=true;
-
-      const dx=(t.clientX-lastTouchX)/CELL;
-      const dy=(t.clientY-lastTouchY)/CELL;
-
-      camX-=dx;
-      camY-=dy;
-
-      lastTouchX=t.clientX;
-      lastTouchY=t.clientY;
+      camX-=dx/CELL;
+      camY-=dy/CELL;
     }
+
+    lastTouchX=t.clientX;
+    lastTouchY=t.clientY;
     return;
   }
 
-  if(!touchMode || e.touches.length!==2) return;
+  if(e.touches.length===2){
+    e.preventDefault();
 
-  e.preventDefault();
+    const t1=e.touches[0];
+    const t2=e.touches[1];
 
-  const t1=e.touches[0];
-  const t2=e.touches[1];
+    const midX=(t1.clientX+t2.clientX)/2;
+    const midY=(t1.clientY+t2.clientY)/2;
 
-  const midX=(t1.clientX+t2.clientX)/2;
-  const midY=(t1.clientY+t2.clientY)/2;
+    camX-=(midX-lastMidX)/CELL;
+    camY-=(midY-lastMidY)/CELL;
 
-  camX-=(midX-lastMidX)/CELL;
-  camY-=(midY-lastMidY)/CELL;
+    lastMidX=midX;
+    lastMidY=midY;
 
-  lastMidX=midX;
-  lastMidY=midY;
+    const dist=Math.hypot(t1.clientX-t2.clientX,t1.clientY-t2.clientY);
+    let zoom=dist/lastDist;
+    let newCell=CELL*zoom;
 
-  const dist=Math.hypot(
-    t1.clientX-t2.clientX,
-    t1.clientY-t2.clientY
-  );
+    if(newCell>25 && newCell<120){
+      CELL=newCell;
+    }
 
-  let zoom=dist/lastDist;
-  let newCell=CELL*zoom;
-
-  if(newCell>25 && newCell<120){
-    CELL=newCell;
+    lastDist=dist;
   }
-
-  lastDist=dist;
 });
 
-canvas.addEventListener("touchend", e=>{
-  // ★タップだった場合のみ配置
-  if(singlePan && !touchMoved){
-    const fakeEvent={
-      clientX:startTouchX,
-      clientY:startTouchY
-    };
-    handleInput(fakeEvent);
+canvas.addEventListener("touchend",e=>{
+  if(!touchMoved && singlePan){
+    const t=e.changedTouches[0];
+    handleInput({clientX:t.clientX,clientY:t.clientY});
   }
 
   if(e.touches.length===0){
-    touchMode=false;
     singlePan=false;
     lastDist=0;
   }
 });
 
-// ===== 入力処理 =====
 function handleInput(e){
   const p=getPos(e);
   const m=get(p.x,p.y);
@@ -274,7 +318,7 @@ function handleInput(e){
   else place(p.x,p.y);
 }
 
-// ===== 以下そのまま =====
+// ===== ゲーム本体 =====
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
@@ -335,42 +379,6 @@ function update(){
   for(let i=items.length-1;i>=0;i--){
     if(items[i].dead) items.splice(i,1);
   }
-}
-
-function saveGame(){
-  if(machines.length===0) return;
-  localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
-}
-
-function loadGame(){
-  const data=JSON.parse(localStorage.getItem("factorySave"));
-  if(!data) return;
-
-  machines.length=0;
-  Object.keys(grid).forEach(k=>delete grid[k]);
-
-  data.machines.forEach(m=>{
-    machines.push(m);
-    grid[key(m.x,m.y)]=m;
-  });
-
-  RES.iron=data.RES.iron;
-  RES.coal=data.RES.coal;
-  power=data.power;
-}
-
-loadGame();
-setInterval(saveGame,5000);
-
-function toggleSettings(){
-  const el=document.getElementById("settings");
-  el.style.display = (el.style.display==="none") ? "block" : "none";
-}
-
-function resetGame(){
-  if(!confirm("データ消す？")) return;
-  localStorage.removeItem("factorySave");
-  location.reload();
 }
 
 function drawUI(){
