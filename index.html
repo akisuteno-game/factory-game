@@ -56,6 +56,17 @@ border-radius:12px;
 display:none;
 border:1px solid #555;
 }
+
+/* ミニマップ */
+#mini{
+position:fixed;
+right:10px;
+bottom:10px;
+width:150px;
+height:100px;
+background:#000a;
+border:1px solid #555;
+}
 </style>
 </head>
 
@@ -81,6 +92,7 @@ border:1px solid #555;
 </div>
 
 <canvas id="c"></canvas>
+<canvas id="mini"></canvas>
 
 <script>
 let CELL=50;
@@ -90,8 +102,14 @@ const MAX_PER_TILE=3;
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 
+const mini=document.getElementById('mini');
+const mctx=mini.getContext('2d');
+
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight-60;
+
+mini.width=150;
+mini.height=100;
 
 let camX=0, camY=0;
 
@@ -111,11 +129,12 @@ function rand(x,y){
   return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
 }
 
+// ★5マス塊保証
 function generateCluster(x,y,type){
   const cluster=[{x,y}];
 
-  for(let i=0;i<4;i++){
-    const base=cluster[Math.floor(rand(i,x)*cluster.length)];
+  while(cluster.length<5){
+    const base=cluster[Math.floor(rand(cluster.length,x)*cluster.length)];
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
     const d=dirs[Math.floor(rand(base.x,base.y)*4)];
 
@@ -136,11 +155,11 @@ function getResource(x,y){
   const k=rkey(x,y);
 
   if(resourceNodes[k]) return resourceNodes[k];
-  if(checkedNodes[k]) return null; // ←ここ重要（再計算防止）
+  if(checkedNodes[k]) return null;
 
   checkedNodes[k]=true;
 
-  if(rand(x,y) > 0.995){ // さらに軽量化
+  if(rand(x,y) > 0.995){
     const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
     generateCluster(x,y,type);
   }
@@ -213,7 +232,15 @@ function getPos(e){
   };
 }
 
-//（※ここから下は一切変更してません）
+// ===== ミニマップクリック移動 =====
+mini.addEventListener("click",e=>{
+  const rect=mini.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)/rect.width;
+  const my=(e.clientY-rect.top)/rect.height;
+
+  camX = mx * 200 - COLS/2;
+  camY = my * 200 - ROWS/2;
+});
 
 // ===== PC操作 =====
 let dragging=false;
@@ -449,6 +476,31 @@ function drawUI(){
     "⚡ "+power;
 }
 
+// ===== ミニマップ描画 =====
+function drawMini(){
+  mctx.clearRect(0,0,mini.width,mini.height);
+
+  const scaleX=mini.width/200;
+  const scaleY=mini.height/200;
+
+  machines.forEach(m=>{
+    mctx.fillStyle=
+      m.id==='miner'?"#6a3":
+      m.id==='power'?"#a33":
+      m.id==='storage'?"#36a":"#aaa";
+
+    mctx.fillRect(m.x*scaleX,m.y*scaleY,2,2);
+  });
+
+  mctx.strokeStyle="#fff";
+  mctx.strokeRect(
+    camX*scaleX,
+    camY*scaleY,
+    COLS*scaleX,
+    ROWS*scaleY
+  );
+}
+
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -499,6 +551,7 @@ function draw(){
   ctx.restore();
 
   drawUI();
+  drawMini();
 }
 
 function loop(){
