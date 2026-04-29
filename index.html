@@ -83,8 +83,7 @@ border:1px solid #555;
 <canvas id="c"></canvas>
 
 <script>
-// ===== マップ拡張 =====
-let CELL=50; // ←変更（ズーム対応）
+let CELL=50;
 const COLS=40, ROWS=30;
 const MAX_PER_TILE=3;
 
@@ -95,7 +94,6 @@ canvas.width=window.innerWidth;
 canvas.height=window.innerHeight-60;
 
 let camX=0, camY=0;
-// =====================
 
 let selected='miner';
 
@@ -146,7 +144,6 @@ function remove(x,y){
 
 function rotate(m){m.dir=(m.dir+1)%4}
 
-// ===== 座標補正 =====
 function getPos(e){
   const r=canvas.getBoundingClientRect();
   return {
@@ -154,7 +151,6 @@ function getPos(e){
     y:Math.floor((e.clientY-r.top)/CELL + camY)
   };
 }
-// ====================
 
 // ===== 操作 =====
 let dragging=false;
@@ -167,6 +163,10 @@ let isPanning=false;
 let panStartX, panStartY;
 
 let touchMode=false;
+
+// ★追加（1本指スクロール用）
+let singlePan=false;
+let lastTouchX=0, lastTouchY=0;
 
 // PC操作
 canvas.addEventListener("pointerdown",e=>{
@@ -243,9 +243,18 @@ let lastMidX=0, lastMidY=0;
 let lastDist=0;
 
 canvas.addEventListener("touchstart", e=>{
+  if(e.touches.length===1){
+    touchMode=true;
+    singlePan=true;
+
+    lastTouchX=e.touches[0].clientX;
+    lastTouchY=e.touches[0].clientY;
+  }
+
   if(e.touches.length===2){
     touchMode=true;
     dragging=false;
+    singlePan=false;
 
     const t1=e.touches[0];
     const t2=e.touches[1];
@@ -261,6 +270,23 @@ canvas.addEventListener("touchstart", e=>{
 });
 
 canvas.addEventListener("touchmove", e=>{
+  // ★1本指スクロール
+  if(singlePan && e.touches.length===1){
+    const t=e.touches[0];
+
+    const dx=(t.clientX-lastTouchX)/CELL;
+    const dy=(t.clientY-lastTouchY)/CELL;
+
+    camX-=dx;
+    camY-=dy;
+
+    lastTouchX=t.clientX;
+    lastTouchY=t.clientY;
+
+    return;
+  }
+
+  // 2本指
   if(!touchMode || e.touches.length!==2) return;
 
   e.preventDefault();
@@ -271,14 +297,12 @@ canvas.addEventListener("touchmove", e=>{
   const midX=(t1.clientX+t2.clientX)/2;
   const midY=(t1.clientY+t2.clientY)/2;
 
-  // スクロール
   camX-=(midX-lastMidX)/CELL;
   camY-=(midY-lastMidY)/CELL;
 
   lastMidX=midX;
   lastMidY=midY;
 
-  // ズーム
   const dist=Math.hypot(
     t1.clientX-t2.clientX,
     t1.clientY-t2.clientY
@@ -295,12 +319,12 @@ canvas.addEventListener("touchmove", e=>{
 });
 
 canvas.addEventListener("touchend", e=>{
-  if(e.touches.length<2){
+  if(e.touches.length===0){
     touchMode=false;
+    singlePan=false;
     lastDist=0;
   }
 });
-// =====================
 
 function handleInput(e){
   const p=getPos(e);
