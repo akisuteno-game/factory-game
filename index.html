@@ -101,44 +101,51 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 軽量 無限マップ =====
+// ===== 超軽量 無限マップ =====
 const resourceNodes={};
+const checkedNodes={};
+
 function rkey(x,y){return x+","+y}
 
 function rand(x,y){
   return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
 }
 
-function tryGenerate(x,y){
-  if(resourceNodes[rkey(x,y)]) return;
+function generateCluster(x,y,type){
+  const cluster=[{x,y}];
 
-  if(rand(x,y) > 0.992){ // 出現率さらに低く
-    const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
+  for(let i=0;i<4;i++){
+    const base=cluster[Math.floor(rand(i,x)*cluster.length)];
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const d=dirs[Math.floor(rand(base.x,base.y)*4)];
 
-    const cluster=[{x,y}];
+    const nx=base.x+d[0];
+    const ny=base.y+d[1];
 
-    for(let i=0;i<4;i++){ // 固定回数で軽量
-      const base=cluster[Math.floor(rand(i,x)*cluster.length)];
-      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-      const d=dirs[Math.floor(rand(base.x,base.y)*4)];
-
-      const nx=base.x+d[0];
-      const ny=base.y+d[1];
-
-      if(!cluster.find(n=>n.x===nx&&n.y===ny)){
-        cluster.push({x:nx,y:ny});
-      }
+    if(!cluster.find(n=>n.x===nx&&n.y===ny)){
+      cluster.push({x:nx,y:ny});
     }
-
-    cluster.forEach(n=>{
-      resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
-    });
   }
+
+  cluster.forEach(n=>{
+    resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
+  });
 }
 
 function getResource(x,y){
-  tryGenerate(x,y);
-  return resourceNodes[rkey(x,y)] || null;
+  const k=rkey(x,y);
+
+  if(resourceNodes[k]) return resourceNodes[k];
+  if(checkedNodes[k]) return null; // ←ここ重要（再計算防止）
+
+  checkedNodes[k]=true;
+
+  if(rand(x,y) > 0.995){ // さらに軽量化
+    const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
+    generateCluster(x,y,type);
+  }
+
+  return resourceNodes[k] || null;
 }
 // =========================
 
