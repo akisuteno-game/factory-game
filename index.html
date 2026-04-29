@@ -101,12 +101,34 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-const resourceNodes=[
-  {x:3,y:3,type:"iron"},
-  {x:10,y:6,type:"coal"},
-  {x:20,y:10,type:"iron"},
-  {x:30,y:20,type:"coal"}
-];
+// ===== ここだけ変更（ランダム鉱脈）=====
+const resourceNodes=[];
+
+function generateClusters(type,count){
+  for(let i=0;i<count;i++){
+    const baseX=Math.floor(Math.random()*COLS);
+    const baseY=Math.floor(Math.random()*ROWS);
+
+    const size=4+Math.floor(Math.random()*3); // 4〜6
+
+    for(let j=0;j<size;j++){
+      const dx=Math.floor(Math.random()*3)-1;
+      const dy=Math.floor(Math.random()*3)-1;
+
+      const x=baseX+dx;
+      const y=baseY+dy;
+
+      if(x<0||y<0||x>=COLS||y>=ROWS) continue;
+      if(resourceNodes.find(n=>n.x===x&&n.y===y)) continue;
+
+      resourceNodes.push({x,y,type});
+    }
+  }
+}
+
+generateClusters("iron",5);
+generateClusters("coal",5);
+// =====================================
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
@@ -126,7 +148,6 @@ function place(x,y){
 
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
 
-  // ★ここだけ追加（採掘機は資源の上のみ）
   if(selected==='miner' && !node) return;
 
   const m={
