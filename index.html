@@ -34,13 +34,11 @@ let selected='miner';
 
 const grid={};
 const machines=[];
+const items=[]; // 👈 流れるアイテム
 
-const G={mat:0};
-
-// 👇 アイコン定義（ここ変えれば拡張できる）
 const RES_TYPES={
-  iron:{color:"#cccccc"},
-  copper:{color:"#ff8844"}
+  iron:{color:"#ccc"},
+  copper:{color:"#f84"}
 };
 
 const resourceNodes=[
@@ -65,9 +63,8 @@ function place(x,y){
     id:selected,
     x,y,
     dir:0,
-    buf:0,
-    type: node?.type || "iron",
-    cool:0
+    cool:0,
+    type: node?.type || "iron"
   };
 
   machines.push(m);
@@ -93,7 +90,6 @@ function handleInput(e){
 
   if(selected==='delete'){
     remove(x,y);
-    save();
     return;
   }
 
@@ -102,8 +98,6 @@ function handleInput(e){
   }else{
     place(x,y);
   }
-
-  save();
 }
 
 canvas.addEventListener("click", handleInput);
@@ -112,50 +106,62 @@ canvas.addEventListener("touchstart",(e)=>{
   handleInput(e.touches[0]);
 });
 
+// 👇 アイテム生成（採掘機）
+function spawnItem(m){
+  const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+  items.push({
+    x:m.x+0.5,
+    y:m.y+0.5,
+    dx:dir[0],
+    dy:dir[1],
+    progress:0,
+    type:m.type
+  });
+}
+
 function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
 
-    if(m.id==='miner'){
+    if(m.id==='miner' && m.cool===0){
       if(Math.random()<0.02){
-        m.buf++;
-      }
-
-      if(m.buf>0 && m.cool===0){
-        const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-        const next=get(m.x+dir[0],m.y+dir[1]);
-
-        if(next){
-          next.buf++;
-          next.type=m.type;
-          m.buf--;
-          m.cool=20;
-        }
-      }
-    }
-
-    if(m.id==='conveyor'){
-      if(m.buf>0 && m.cool===0){
-        const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-        const next=get(m.x+dir[0],m.y+dir[1]);
-
-        if(next){
-          next.buf++;
-          next.type=m.type;
-          m.buf--;
-          m.cool=10;
-        }
+        spawnItem(m);
+        m.cool=30;
       }
     }
   });
+
+  // 👇 アイテム移動
+  items.forEach(it=>{
+    it.progress += 0.05;
+
+    if(it.progress >= 1){
+      it.x += it.dx;
+      it.y += it.dy;
+      it.progress = 0;
+
+      const tile = get(Math.floor(it.x), Math.floor(it.y));
+      if(tile && tile.id==='conveyor'){
+        const dir=[[1,0],[0,1],[-1,0],[0,-1]][tile.dir];
+        it.dx=dir[0];
+        it.dy=dir[1];
+      }else{
+        it.dead=true;
+      }
+    }
+  });
+
+  // 消えるやつ削除
+  for(let i=items.length-1;i>=0;i--){
+    if(items[i].dead) items.splice(i,1);
+  }
 }
 
-// 👇 インゴット描画
 function drawIngot(x,y,color){
   ctx.fillStyle=color;
-  ctx.fillRect(x+10,y+18,30,14);
+  ctx.fillRect(x-8,y-4,16,8);
   ctx.strokeStyle="#000";
-  ctx.strokeRect(x+10,y+18,30,14);
+  ctx.strokeRect(x-8,y-4,16,8);
 }
 
 function draw(){
@@ -183,36 +189,15 @@ function draw(){
       ctx.fillStyle="#fff";
       ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
     }
-
-    // 👇 アイコン表示
-    if(m.buf>0){
-      const color=RES_TYPES[m.type]?.color || "#fff";
-      drawIngot(px,py,color);
-
-      ctx.fillStyle="#fff";
-      ctx.fillText(m.buf, px+32, py+16);
-    }
   });
 
-  ctx.fillStyle="#fff";
-  ctx.fillText("素材:"+G.mat,10,20);
-}
-
-function save(){
-  localStorage.setItem("factorySave", JSON.stringify({machines,G}));
-}
-
-function load(){
-  const data=localStorage.getItem("factorySave");
-  if(!data) return;
-  const parsed=JSON.parse(data);
-
-  parsed.machines.forEach(m=>{
-    machines.push(m);
-    grid[key(m.x,m.y)]=m;
+  // 👇 流れるアイテム描画
+  items.forEach(it=>{
+    const px = (it.x + it.dx*it.progress)*CELL;
+    const py = (it.y + it.dy*it.progress)*CELL;
+    const color=RES_TYPES[it.type]?.color || "#fff";
+    drawIngot(px,py,color);
   });
-
-  G.mat=parsed.G.mat;
 }
 
 function loop(){
@@ -221,7 +206,6 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-load();
 selectTool('miner');
 loop();
 </script>
