@@ -4,32 +4,72 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Factory Lite+</title>
+
 <style>
-body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
-#ui{padding:8px;display:flex;gap:8px;flex-wrap:wrap}
-button{padding:10px;border-radius:8px;border:none;background:#333;color:#fff}
-canvas{display:block;margin:auto;background:#222}
-.active{background:#5a5}
+body{
+  margin:0;
+  background:#1a1a18;
+  color:#eee;
+  font-family:sans-serif;
+}
+
+/* 上UI */
+#ui{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:8px;
+  background:#111;
+  border-bottom:2px solid #333;
+}
+
+button{
+  padding:8px 10px;
+  border-radius:8px;
+  border:none;
+  background:#333;
+  color:#fff;
+}
+
+.active{
+  background:#5a5;
+}
+
+/* 情報パネル */
 #panel{
-position:fixed;
-top:10px;right:10px;
-background:#000a;
-padding:10px;
-border-radius:10px;
+  position:fixed;
+  right:10px;
+  top:60px;
+  background:#000c;
+  padding:12px;
+  border-radius:10px;
+  font-size:14px;
+  line-height:1.6;
+  min-width:120px;
+  border:1px solid #333;
+}
+
+/* キャンバス */
+canvas{
+  display:block;
+  margin:auto;
+  background:#222;
 }
 </style>
 </head>
+
 <body>
 
 <div id="ui">
-  <button onclick="selectTool('miner')" id="btn-miner">採掘</button>
-  <button onclick="selectTool('conveyor')" id="btn-conveyor">コンベア</button>
-  <button onclick="selectTool('splitter')" id="btn-splitter">分岐</button>
-  <button onclick="selectTool('power')" id="btn-power">発電</button>
-  <button onclick="selectTool('storage')" id="btn-storage">倉庫</button>
-  <button onclick="selectTool('delete')" id="btn-delete">削除</button>
-  <button onclick="saveGame()">💾保存</button>
-  <button onclick="loadGame()">📂読込</button>
+  <button onclick="selectTool('miner')" id="btn-miner">⛏ 採掘</button>
+  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡ コンベア</button>
+  <button onclick="selectTool('splitter')" id="btn-splitter">⇄ 分岐</button>
+  <button onclick="selectTool('power')" id="btn-power">⚡ 発電</button>
+  <button onclick="selectTool('storage')" id="btn-storage">📦 倉庫</button>
+  <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
+
+  <button onclick="saveGame()">💾 保存</button>
+  <button onclick="loadGame()">📂 読込</button>
 </div>
 
 <div id="panel"></div>
@@ -37,7 +77,7 @@ border-radius:10px;
 
 <script>
 const CELL=50, COLS=16, ROWS=10;
-const MAX_PER_TILE = 3; // 👈 詰まり制限
+const MAX_PER_TILE=3;
 
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
@@ -71,6 +111,7 @@ function selectTool(t){
 
 function place(x,y){
   if(get(x,y)) return;
+
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
 
   const m={
@@ -110,9 +151,18 @@ canvas.addEventListener("touchstart",(e)=>{
 });
 
 function spawn(m){
-  if(countItems(m.x,m.y)>=MAX_PER_TILE) return; // 👈 詰まり防止
+  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
+
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
+
+  items.push({
+    x:m.x+0.5,
+    y:m.y+0.5,
+    dx:d[0],
+    dy:d[1],
+    p:0,
+    type:m.type
+  });
 }
 
 function nextTile(it){
@@ -154,17 +204,16 @@ function update(){
     it.p+=0.05;
 
     if(it.p>=1){
-      const next = nextTile(it);
+      const next=nextTile(it);
 
-      // 👇 次がない → 完全停止
       if(!next){
         it.p=0.99;
         return;
       }
 
-      // 👇 次が詰まってる → 待つ
       const nx=Math.floor(it.x+it.dx);
       const ny=Math.floor(it.y+it.dy);
+
       if(countItems(nx,ny)>=MAX_PER_TILE){
         it.p=0.99;
         return;
@@ -176,7 +225,8 @@ function update(){
 
       if(next.id==='conveyor'){
         const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
-        it.dx=d[0]; it.dy=d[1];
+        it.dx=d[0];
+        it.dy=d[1];
       }
 
       if(next.id==='splitter'){
@@ -184,7 +234,8 @@ function update(){
         const side=next.toggle?1:-1;
         next.toggle=1-next.toggle;
         const d=dirs[(next.dir+side+4)%4];
-        it.dx=d[0]; it.dy=d[1];
+        it.dx=d[0];
+        it.dy=d[1];
       }
     }
   });
@@ -194,7 +245,6 @@ function update(){
   }
 }
 
-// 💾 セーブ
 function saveGame(){
   if(machines.length===0){
     alert("空は保存できない");
@@ -203,7 +253,6 @@ function saveGame(){
   localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
 }
 
-// 📂 ロード
 function loadGame(){
   const data=JSON.parse(localStorage.getItem("factorySave"));
   if(!data) return;
@@ -221,12 +270,13 @@ function loadGame(){
   power=data.power;
 }
 
-// UI
 function drawUI(){
   document.getElementById("panel").innerHTML=
-    "鉄:"+RES.iron+"<br>"+
-    "石炭:"+RES.coal+"<br>"+
-    "⚡:"+power;
+    "<b>資源</b><br>"+
+    "🪨 鉄: "+RES.iron+"<br>"+
+    "⚫ 石炭: "+RES.coal+"<br><br>"+
+    "<b>電力</b><br>"+
+    "⚡ "+power;
 }
 
 function draw(){
@@ -283,5 +333,6 @@ function loop(){
 selectTool('miner');
 loop();
 </script>
+
 </body>
 </html>
