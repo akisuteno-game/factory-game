@@ -53,7 +53,7 @@ function selectTool(t){
 
 function place(x,y){
   if(get(x,y)) return;
-  const m={id:selected,x,y,dir:0,buf:0};
+  const m={id:selected,x,y,dir:0,buf:0,cool:0};
   machines.push(m);
   grid[key(x,y)]=m;
 }
@@ -87,10 +87,7 @@ function handleInput(e){
   }
 }
 
-// PC
 canvas.addEventListener("click", handleInput);
-
-// iPad / スマホ
 canvas.addEventListener("touchstart",(e)=>{
   e.preventDefault();
   handleInput(e.touches[0]);
@@ -104,24 +101,25 @@ function getBonus(x,y){
 function update(){
   machines.forEach(m=>{
 
+    if(m.cool>0) m.cool--;
+
     // 採掘機
     if(m.id==='miner'){
       if(Math.random()<0.02){
         m.buf+=getBonus(m.x,m.y);
       }
 
-      // 👇 前に流す
-      if(m.buf > 0){
+      if(m.buf>0 && m.cool===0){
         const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
         const next=get(m.x+dir[0],m.y+dir[1]);
 
         if(next){
           next.buf=(next.buf||0)+1;
           m.buf--;
+          m.cool=20; // ←速度制御（大きいほど遅い）
         }
       }
 
-      // 👇 一部は直接加算（詰まり防止）
       if(m.buf>10){
         G.mat+=m.buf;
         m.buf=0;
@@ -130,12 +128,15 @@ function update(){
 
     // コンベア
     if(m.id==='conveyor'){
-      const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-      const next=get(m.x+dir[0],m.y+dir[1]);
+      if(m.buf>0 && m.cool===0){
+        const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+        const next=get(m.x+dir[0],m.y+dir[1]);
 
-      if(next && m.buf>0){
-        next.buf=(next.buf||0)+1;
-        m.buf--;
+        if(next){
+          next.buf=(next.buf||0)+1;
+          m.buf--;
+          m.cool=10;
+        }
       }
     }
 
@@ -168,9 +169,12 @@ function draw(){
       ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
     }
 
+    // 👇 アイテム可視化
     if(m.buf>0){
       ctx.fillStyle="#ff0";
-      ctx.fillText(m.buf,px+5,py+15);
+      ctx.beginPath();
+      ctx.arc(px+CELL/2, py+CELL/2, 6, 0, Math.PI*2);
+      ctx.fill();
     }
   });
 
