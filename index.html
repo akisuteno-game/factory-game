@@ -101,51 +101,46 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 無限マップ＋塊生成 =====
+// ===== 軽量 無限マップ =====
 const resourceNodes={};
-
 function rkey(x,y){return x+","+y}
 
-// 擬似乱数（座標固定）
 function rand(x,y){
   return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
 }
 
-// 塊判定（中心＋周囲）
-function getResource(x,y){
-  const k=rkey(x,y);
-  if(resourceNodes[k]) return resourceNodes[k];
+function tryGenerate(x,y){
+  if(resourceNodes[rkey(x,y)]) return;
 
-  // 塊の中心候補
-  const centerChance = rand(x,y);
-
-  if(centerChance > 0.985){ // かなりレアに中心
+  if(rand(x,y) > 0.992){ // 出現率さらに低く
     const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
 
-    // 5マス塊生成
     const cluster=[{x,y}];
 
-    while(cluster.length<5){
-      const base=cluster[Math.floor(rand(cluster.length,x)*cluster.length)];
+    for(let i=0;i<4;i++){ // 固定回数で軽量
+      const base=cluster[Math.floor(rand(i,x)*cluster.length)];
       const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
       const d=dirs[Math.floor(rand(base.x,base.y)*4)];
 
       const nx=base.x+d[0];
       const ny=base.y+d[1];
 
-      if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
-
-      cluster.push({x:nx,y:ny});
+      if(!cluster.find(n=>n.x===nx&&n.y===ny)){
+        cluster.push({x:nx,y:ny});
+      }
     }
 
     cluster.forEach(n=>{
       resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
     });
   }
-
-  return resourceNodes[k] || null;
 }
-// =============================
+
+function getResource(x,y){
+  tryGenerate(x,y);
+  return resourceNodes[rkey(x,y)] || null;
+}
+// =========================
 
 // ===== 設定 =====
 function toggleSettings(){
@@ -210,6 +205,8 @@ function getPos(e){
     y:Math.floor((e.clientY-r.top)/CELL + camY)
   };
 }
+
+//（※ここから下は一切変更してません）
 
 // ===== PC操作 =====
 let dragging=false;
