@@ -46,7 +46,6 @@ canvas{
   background:#222;
 }
 
-/* 設定画面 */
 #settings{
 position:fixed;
 left:50%;
@@ -157,11 +156,28 @@ function handleInput(e){
   else place(x,y);
 }
 
-canvas.addEventListener("click", handleInput);
+/* ===== ここから追加（タッチ改善） ===== */
+
+let touchMoved = false;
+
 canvas.addEventListener("touchstart",(e)=>{
-  e.preventDefault();
-  handleInput(e.touches[0]);
+  if(e.touches.length > 1) return; // 2本指は無視
+  touchMoved = false;
 });
+
+canvas.addEventListener("touchmove",()=>{
+  touchMoved = true;
+});
+
+canvas.addEventListener("touchend",(e)=>{
+  if(touchMoved) return; // スクロールなら無視
+  const touch = e.changedTouches[0];
+  handleInput(touch);
+});
+
+/* ===== ここまで追加 ===== */
+
+canvas.addEventListener("click", handleInput);
 
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
@@ -258,13 +274,11 @@ function update(){
   }
 }
 
-// 保存
 function saveGame(){
   if(machines.length===0) return;
   localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
 }
 
-// 読込
 function loadGame(){
   const data=JSON.parse(localStorage.getItem("factorySave"));
   if(!data) return;
@@ -282,13 +296,9 @@ function loadGame(){
   power=data.power;
 }
 
-// 自動ロード
 loadGame();
-
-// オートセーブ
 setInterval(saveGame,5000);
 
-// 設定UI
 function toggleSettings(){
   const el=document.getElementById("settings");
   el.style.display = (el.style.display==="none") ? "block" : "none";
