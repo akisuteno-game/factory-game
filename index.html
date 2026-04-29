@@ -6,7 +6,7 @@
 <title>Factory Lite+</title>
 <style>
 body{margin:0;font-family:sans-serif;background:#1a1a18;color:#eee}
-#ui{padding:8px;display:flex;gap:8px}
+#ui{padding:8px;display:flex;gap:8px;flex-wrap:wrap}
 button{padding:10px;border-radius:8px;border:none;background:#333;color:#fff}
 canvas{display:block;margin:auto;background:#222;touch-action:none}
 .active{background:#5a5}
@@ -17,13 +17,15 @@ canvas{display:block;margin:auto;background:#222;touch-action:none}
 <div id="ui">
   <button onclick="selectTool('miner')" id="btn-miner">採掘</button>
   <button onclick="selectTool('conveyor')" id="btn-conveyor">コンベア</button>
+  <button onclick="selectTool('power')" id="btn-power">発電</button>
+  <button onclick="selectTool('storage')" id="btn-storage">倉庫</button>
   <button onclick="selectTool('delete')" id="btn-delete">削除</button>
 </div>
 
 <canvas id="c"></canvas>
 
 <script>
-const CELL=50, COLS=12, ROWS=8;
+const CELL=50, COLS=16, ROWS=10;
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 
@@ -34,16 +36,14 @@ let selected='miner';
 
 const grid={};
 const machines=[];
-const items=[]; // 👈 流れるアイテム
+const items=[];
 
-const RES_TYPES={
-  iron:{color:"#ccc"},
-  copper:{color:"#f84"}
-};
+const RES={iron:0,coal:0};
+let power=0;
 
 const resourceNodes=[
-  {x:2,y:3,type:"iron"},
-  {x:7,y:5,type:"copper"}
+  {x:3,y:3,type:"iron"},
+  {x:10,y:6,type:"coal"}
 ];
 
 function key(x,y){return x+","+y}
@@ -60,11 +60,9 @@ function place(x,y){
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
 
   const m={
-    id:selected,
-    x,y,
-    dir:0,
-    cool:0,
-    type: node?.type || "iron"
+    id:selected,x,y,dir:0,cool:0,
+    type:node?.type||"iron",
+    fuel:0
   };
 
   machines.push(m);
@@ -72,12 +70,10 @@ function place(x,y){
 }
 
 function remove(x,y){
-  const k=key(x,y);
-  const m=grid[k];
+  const m=get(x,y);
   if(!m) return;
-  delete grid[k];
-  const i=machines.indexOf(m);
-  if(i!==-1) machines.splice(i,1);
+  delete grid[key(x,y)];
+  machines.splice(machines.indexOf(m),1);
 }
 
 function rotate(m){m.dir=(m.dir+1)%4}
@@ -88,16 +84,9 @@ function handleInput(e){
   const y=Math.floor((e.clientY-r.top)/CELL);
   const m=get(x,y);
 
-  if(selected==='delete'){
-    remove(x,y);
-    return;
-  }
-
-  if(m && m.id==='conveyor'){
-    rotate(m);
-  }else{
-    place(x,y);
-  }
+  if(selected==='delete'){ remove(x,y); return; }
+  if(m && m.id==='conveyor'){ rotate(m); }
+  else{ place(x,y); }
 }
 
 canvas.addEventListener("click", handleInput);
@@ -106,62 +95,66 @@ canvas.addEventListener("touchstart",(e)=>{
   handleInput(e.touches[0]);
 });
 
-// 👇 アイテム生成（採掘機）
-function spawnItem(m){
-  const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-  items.push({
-    x:m.x+0.5,
-    y:m.y+0.5,
-    dx:dir[0],
-    dy:dir[1],
-    progress:0,
-    type:m.type
-  });
+function spawn(m){
+  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
 }
 
 function update(){
   machines.forEach(m=>{
     if(m.cool>0) m.cool--;
 
-    if(m.id==='miner' && m.cool===0){
-      if(Math.random()<0.02){
-        spawnItem(m);
-        m.cool=30;
+    // 採掘（電力必要）
+    if(m.id==='miner' && power>0 && m.cool===0){
+      spawn(m);
+      m.cool=40;
+      power--;
+    }
+
+    // 発電
+    if(m.id==='power'){
+      items.forEach(it=>{
+        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
+          if(it.type==='coal'){
+            m.fuel++;
+            it.dead=true;
+          }
+        }
+      });
+
+      if(m.fuel>0 && m.cool===0){
+        m.fuel--;
+        power+=5;
+        m.cool=60;
       }
+    }
+
+    // 倉庫
+    if(m.id==='storage'){
+      items.forEach(it=>{
+        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
+          RES[it.type]++;
+          it.dead=true;
+        }
+      });
     }
   });
 
-  // 👇 アイテム移動
   items.forEach(it=>{
-    it.progress += 0.05;
-
-    if(it.progress >= 1){
-      it.x += it.dx;
-      it.y += it.dy;
-      it.progress = 0;
-
-      const tile = get(Math.floor(it.x), Math.floor(it.y));
-      if(tile && tile.id==='conveyor'){
-        const dir=[[1,0],[0,1],[-1,0],[0,-1]][tile.dir];
-        it.dx=dir[0];
-        it.dy=dir[1];
-      }else{
-        it.dead=true;
-      }
+    it.p+=0.05;
+    if(it.p>=1){
+      it.x+=it.dx; it.y+=it.dy; it.p=0;
+      const t=get(Math.floor(it.x),Math.floor(it.y));
+      if(t && t.id==='conveyor'){
+        const d=[[1,0],[0,1],[-1,0],[0,-1]][t.dir];
+        it.dx=d[0]; it.dy=d[1];
+      }else if(!t){ it.dead=true; }
     }
   });
 
-  // 消えるやつ削除
   for(let i=items.length-1;i>=0;i--){
     if(items[i].dead) items.splice(i,1);
   }
-}
-
-function drawIngot(x,y,color){
-  ctx.fillStyle=color;
-  ctx.fillRect(x-8,y-4,16,8);
-  ctx.strokeStyle="#000";
-  ctx.strokeRect(x-8,y-4,16,8);
 }
 
 function draw(){
@@ -175,29 +168,41 @@ function draw(){
   }
 
   resourceNodes.forEach(n=>{
-    ctx.fillStyle="#335533";
+    ctx.fillStyle=n.type==="iron"?"#555":"#111";
     ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
+    ctx.fillStyle="#fff";
+    ctx.fillText(n.type==="iron"?"鉄":"石炭",n.x*CELL+5,n.y*CELL+20);
   });
 
   machines.forEach(m=>{
     const px=m.x*CELL,py=m.y*CELL;
 
-    ctx.fillStyle = m.id==='miner'?"#6a3":"#888";
+    ctx.fillStyle=
+      m.id==='miner'?"#6a3":
+      m.id==='power'?"#a33":
+      m.id==='storage'?"#36a":"#888";
+
     ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
 
     if(m.id==='conveyor'){
       ctx.fillStyle="#fff";
       ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
     }
+
+    if(m.id==='power'){
+      ctx.fillText("⚡"+m.fuel,px+5,py+20);
+    }
   });
 
-  // 👇 流れるアイテム描画
   items.forEach(it=>{
-    const px = (it.x + it.dx*it.progress)*CELL;
-    const py = (it.y + it.dy*it.progress)*CELL;
-    const color=RES_TYPES[it.type]?.color || "#fff";
-    drawIngot(px,py,color);
+    const px=(it.x+it.dx*it.p)*CELL;
+    const py=(it.y+it.dy*it.p)*CELL;
+    ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
+    ctx.fillRect(px-6,py-3,12,6);
   });
+
+  ctx.fillStyle="#fff";
+  ctx.fillText("鉄:"+RES.iron+" 石炭:"+RES.coal+" ⚡"+power,10,20);
 }
 
 function loop(){
