@@ -101,34 +101,53 @@ const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== 無限マップ用：資源を動的生成 =====
+// ===== 無限マップ＋塊生成 =====
 const resourceNodes={};
 
 function rkey(x,y){return x+","+y}
 
+// 擬似乱数（座標固定）
+function rand(x,y){
+  return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
+}
+
+// 塊判定（中心＋周囲）
 function getResource(x,y){
   const k=rkey(x,y);
   if(resourceNodes[k]) return resourceNodes[k];
 
-  // シンプルな疑似乱数（座標ベース）
-  const seed=(x*928371 + y*12377) % 100;
+  // 塊の中心候補
+  const centerChance = rand(x,y);
 
-  let type=null;
+  if(centerChance > 0.985){ // かなりレアに中心
+    const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
 
-  // 6分割風に分布
-  if(seed<10) type="iron";
-  else if(seed<18) type="coal";
+    // 5マス塊生成
+    const cluster=[{x,y}];
 
-  if(type){
-    resourceNodes[k]={x,y,type};
-    return resourceNodes[k];
+    while(cluster.length<5){
+      const base=cluster[Math.floor(rand(cluster.length,x)*cluster.length)];
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+      const d=dirs[Math.floor(rand(base.x,base.y)*4)];
+
+      const nx=base.x+d[0];
+      const ny=base.y+d[1];
+
+      if(cluster.find(n=>n.x===nx&&n.y===ny)) continue;
+
+      cluster.push({x:nx,y:ny});
+    }
+
+    cluster.forEach(n=>{
+      resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
+    });
   }
 
-  return null;
+  return resourceNodes[k] || null;
 }
-// =====================================
+// =============================
 
-// ===== 設定ボタン修正 =====
+// ===== 設定 =====
 function toggleSettings(){
   const el=document.getElementById("settings");
   el.style.display = el.style.display==="none" ? "block" : "none";
@@ -144,7 +163,7 @@ function resetGame(){
   localStorage.clear();
   location.reload();
 }
-// =====================================
+// =================
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
@@ -432,7 +451,6 @@ function draw(){
   ctx.save();
   ctx.translate(-camX*CELL, -camY*CELL);
 
-  // 無限風グリッド
   const startX=Math.floor(camX);
   const startY=Math.floor(camY);
 
