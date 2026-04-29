@@ -84,7 +84,8 @@ border:1px solid #555;
 
 <script>
 // ===== マップ拡張 =====
-const CELL=50, COLS=40, ROWS=30;
+let CELL=50; // ←変更（ズーム対応）
+const COLS=40, ROWS=30;
 const MAX_PER_TILE=3;
 
 const canvas=document.getElementById('c');
@@ -124,7 +125,6 @@ function selectTool(t){
 
 function place(x,y){
   if(get(x,y)) return;
-
   const node=resourceNodes.find(n=>n.x===x&&n.y===y);
 
   const m={
@@ -156,18 +156,22 @@ function getPos(e){
 }
 // ====================
 
-// ===== 操作（そのまま維持＋スクロール追加）=====
+// ===== 操作 =====
 let dragging=false;
 let lastX=-1,lastY=-1;
 let pressTimer=null;
 let startX,startY;
 let moved=false;
 
-// スクロール用
 let isPanning=false;
 let panStartX, panStartY;
 
+let touchMode=false;
+
+// PC操作
 canvas.addEventListener("pointerdown",e=>{
+  if(touchMode) return;
+
   if(e.button===1){
     isPanning=true;
     panStartX=e.clientX;
@@ -184,12 +188,12 @@ canvas.addEventListener("pointerdown",e=>{
   lastX=p.x;
   lastY=p.y;
 
-  pressTimer=setTimeout(()=>{
-    remove(p.x,p.y);
-  },400);
+  pressTimer=setTimeout(()=>remove(p.x,p.y),400);
 });
 
 canvas.addEventListener("pointermove",e=>{
+  if(touchMode) return;
+
   if(isPanning){
     const dx=(e.clientX-panStartX)/CELL;
     const dy=(e.clientY-panStartY)/CELL;
@@ -219,6 +223,8 @@ canvas.addEventListener("pointermove",e=>{
 });
 
 canvas.addEventListener("pointerup",e=>{
+  if(touchMode) return;
+
   if(isPanning){
     isPanning=false;
     return;
@@ -227,13 +233,74 @@ canvas.addEventListener("pointerup",e=>{
   dragging=false;
   clearTimeout(pressTimer);
 
-  const p=getPos(e);
-
   if(!moved){
     handleInput(e);
   }
 });
-// ======================================
+
+// ===== スマホ操作 =====
+let lastMidX=0, lastMidY=0;
+let lastDist=0;
+
+canvas.addEventListener("touchstart", e=>{
+  if(e.touches.length===2){
+    touchMode=true;
+    dragging=false;
+
+    const t1=e.touches[0];
+    const t2=e.touches[1];
+
+    lastMidX=(t1.clientX+t2.clientX)/2;
+    lastMidY=(t1.clientY+t2.clientY)/2;
+
+    lastDist=Math.hypot(
+      t1.clientX-t2.clientX,
+      t1.clientY-t2.clientY
+    );
+  }
+});
+
+canvas.addEventListener("touchmove", e=>{
+  if(!touchMode || e.touches.length!==2) return;
+
+  e.preventDefault();
+
+  const t1=e.touches[0];
+  const t2=e.touches[1];
+
+  const midX=(t1.clientX+t2.clientX)/2;
+  const midY=(t1.clientY+t2.clientY)/2;
+
+  // スクロール
+  camX-=(midX-lastMidX)/CELL;
+  camY-=(midY-lastMidY)/CELL;
+
+  lastMidX=midX;
+  lastMidY=midY;
+
+  // ズーム
+  const dist=Math.hypot(
+    t1.clientX-t2.clientX,
+    t1.clientY-t2.clientY
+  );
+
+  let zoom=dist/lastDist;
+  let newCell=CELL*zoom;
+
+  if(newCell>25 && newCell<120){
+    CELL=newCell;
+  }
+
+  lastDist=dist;
+});
+
+canvas.addEventListener("touchend", e=>{
+  if(e.touches.length<2){
+    touchMode=false;
+    lastDist=0;
+  }
+});
+// =====================
 
 function handleInput(e){
   const p=getPos(e);
@@ -244,7 +311,7 @@ function handleInput(e){
   else place(p.x,p.y);
 }
 
-// ===== 以下ゲーム本体（完全そのまま）=====
+// ===== 以下そのまま =====
 function spawn(m){
   if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
   const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
