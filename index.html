@@ -6,59 +6,34 @@
 <title>Factory Lite+</title>
 
 <style>
-body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
+body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif;overflow:auto}
 
-#ui{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  padding:8px;
-  background:#111;
-  border-bottom:2px solid #333;
-}
-
-button{
-  padding:8px 10px;
-  border-radius:8px;
-  border:none;
-  background:#333;
-  color:#fff;
-}
-
+#ui{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#111;border-bottom:2px solid #333}
+button{padding:8px 10px;border-radius:8px;border:none;background:#333;color:#fff}
 .active{background:#5a5}
 
 #panel{
-  position:fixed;
-  right:10px;
-  top:60px;
-  background:#000c;
-  padding:12px;
-  border-radius:10px;
-  font-size:14px;
-  line-height:1.6;
-  min-width:120px;
-  border:1px solid #333;
-}
-
-canvas{
-  display:block;
-  margin:auto;
-  background:#222;
+position:fixed;right:10px;top:60px;background:#000c;
+padding:12px;border-radius:10px;font-size:14px;
+border:1px solid #333;
 }
 
 #settings{
-position:fixed;
-left:50%;
-top:50%;
+position:fixed;left:50%;top:50%;
 transform:translate(-50%,-50%);
-background:#111;
-padding:20px;
-border-radius:12px;
-display:none;
-z-index:10;
-border:1px solid #555;
-min-width:200px;
-text-align:center;
+background:#111;padding:20px;border-radius:12px;
+display:none;z-index:10;border:1px solid #555;
+}
+
+#wrap{
+overflow:auto;
+width:100vw;
+height:calc(100vh - 60px);
+}
+
+canvas{
+background:#222;
+transform-origin:0 0;
 }
 </style>
 </head>
@@ -66,30 +41,31 @@ text-align:center;
 <body>
 
 <div id="ui">
-  <button onclick="selectTool('miner')" id="btn-miner">⛏ 採掘</button>
-  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡ コンベア</button>
-  <button onclick="selectTool('splitter')" id="btn-splitter">⇄ 分岐</button>
-  <button onclick="selectTool('power')" id="btn-power">⚡ 発電</button>
-  <button onclick="selectTool('storage')" id="btn-storage">📦 倉庫</button>
-  <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
-
-  <button onclick="toggleSettings()">⚙ 設定</button>
+  <button onclick="selectTool('miner')" id="btn-miner">⛏</button>
+  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡</button>
+  <button onclick="selectTool('splitter')" id="btn-splitter">⇄</button>
+  <button onclick="selectTool('power')" id="btn-power">⚡</button>
+  <button onclick="selectTool('storage')" id="btn-storage">📦</button>
+  <button onclick="selectTool('delete')" id="btn-delete">🗑</button>
+  <button onclick="toggleSettings()">⚙</button>
 </div>
 
 <div id="panel"></div>
 
 <div id="settings">
   <h3>設定</h3>
-  <button onclick="saveGame()">💾 保存</button><br><br>
-  <button onclick="resetGame()">🗑 データ削除</button><br><br>
+  <button onclick="saveGame()">保存</button><br><br>
+  <button onclick="resetGame()">データ削除</button><br><br>
   <button onclick="toggleSettings()">閉じる</button>
 </div>
 
-<canvas id="c"></canvas>
+<div id="wrap">
+  <canvas id="c"></canvas>
+</div>
 
 <script>
-const CELL=50, COLS=16, ROWS=10;
-const MAX_PER_TILE=3;
+const CELL=50, COLS=40, ROWS=30;
+let scale=1;
 
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
@@ -98,22 +74,21 @@ canvas.width=COLS*CELL;
 canvas.height=ROWS*CELL;
 
 let selected='miner';
-
 const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
+// 資源増やした
 const resourceNodes=[
   {x:3,y:3,type:"iron"},
-  {x:10,y:6,type:"coal"}
+  {x:5,y:10,type:"iron"},
+  {x:15,y:8,type:"coal"},
+  {x:20,y:20,type:"coal"},
+  {x:30,y:5,type:"iron"}
 ];
 
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
-
-function countItems(x,y){
-  return items.filter(it=>Math.floor(it.x)===x && Math.floor(it.y)===y).length;
-}
 
 function selectTool(t){
   selected=t;
@@ -121,10 +96,18 @@ function selectTool(t){
   document.getElementById("btn-"+t)?.classList.add("active");
 }
 
+// 鉱石チェック追加
+function isResource(x,y){
+  return resourceNodes.find(n=>n.x===x&&n.y===y);
+}
+
 function place(x,y){
   if(get(x,y)) return;
 
-  const node=resourceNodes.find(n=>n.x===x&&n.y===y);
+  // ⛏は資源の上だけ
+  if(selected==="miner" && !isResource(x,y)) return;
+
+  const node=isResource(x,y);
 
   const m={
     id:selected,x,y,dir:0,cool:0,
@@ -145,78 +128,67 @@ function remove(x,y){
 
 function rotate(m){m.dir=(m.dir+1)%4}
 
-function handleInput(e){
-  const r=canvas.getBoundingClientRect();
-  const x=Math.floor((e.clientX-r.left)/CELL);
-  const y=Math.floor((e.clientY-r.top)/CELL);
-  const m=get(x,y);
+// ===== 操作 =====
+let dragging=false;
+let lastX=-1,lastY=-1;
+let pressTimer;
 
-  if(selected==='delete'){ remove(x,y); return; }
-  if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
-  else place(x,y);
+function handlePos(e){
+  const r=canvas.getBoundingClientRect();
+  return {
+    x:Math.floor((e.clientX-r.left)/CELL/scale),
+    y:Math.floor((e.clientY-r.top)/CELL/scale)
+  };
 }
 
-/* ===== ここから追加（タッチ改善） ===== */
+canvas.addEventListener("pointerdown",e=>{
+  const p=handlePos(e);
+  dragging=true;
 
-let touchMoved = false;
+  pressTimer=setTimeout(()=>{
+    remove(p.x,p.y);
+  },400);
 
-canvas.addEventListener("touchstart",(e)=>{
-  if(e.touches.length > 1) return; // 2本指は無視
-  touchMoved = false;
+  place(p.x,p.y);
+  lastX=p.x; lastY=p.y;
 });
 
-canvas.addEventListener("touchmove",()=>{
-  touchMoved = true;
+canvas.addEventListener("pointermove",e=>{
+  if(!dragging) return;
+
+  const p=handlePos(e);
+  if(p.x===lastX && p.y===lastY) return;
+
+  place(p.x,p.y);
+  lastX=p.x; lastY=p.y;
 });
 
-canvas.addEventListener("touchend",(e)=>{
-  if(touchMoved) return; // スクロールなら無視
-  const touch = e.changedTouches[0];
-  handleInput(touch);
+canvas.addEventListener("pointerup",()=>{
+  dragging=false;
+  clearTimeout(pressTimer);
 });
 
-/* ===== ここまで追加 ===== */
+// ズーム
+canvas.addEventListener("wheel",e=>{
+  e.preventDefault();
+  scale += e.deltaY * -0.001;
+  scale=Math.max(0.5,Math.min(2,scale));
+  canvas.style.transform=`scale(${scale})`;
+});
 
-canvas.addEventListener("click", handleInput);
+// ===== ゲーム =====
 
 function spawn(m){
-  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
-
-  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-
-  items.push({
-    x:m.x+0.5,
-    y:m.y+0.5,
-    dx:d[0],
-    dy:d[1],
-    p:0,
-    type:m.type
-  });
-}
-
-function nextTile(it){
-  return get(Math.floor(it.x+it.dx),Math.floor(it.y+it.dy));
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:1,dy:0,p:0,type:m.type});
 }
 
 function update(){
   machines.forEach(m=>{
-    if(m.cool>0) m.cool--;
+    if(m.cool>0)m.cool--;
 
-    if(m.id==='miner' && power>0 && m.cool===0){
+    if(m.id==='miner' && m.cool===0){
       spawn(m);
-      m.cool=40;
-      power--;
-    }
-
-    if(m.id==='power'){
-      items.forEach(it=>{
-        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
-          if(it.type==='coal'){
-            power+=10;
-            it.dead=true;
-          }
-        }
-      });
+      m.cool=60;
     }
 
     if(m.id==='storage'){
@@ -230,58 +202,24 @@ function update(){
   });
 
   items.forEach(it=>{
-    it.p+=0.05;
-
+    it.p+=0.03;
     if(it.p>=1){
-      const next=nextTile(it);
-
-      if(!next){
-        it.p=0.99;
-        return;
-      }
-
-      const nx=Math.floor(it.x+it.dx);
-      const ny=Math.floor(it.y+it.dy);
-
-      if(countItems(nx,ny)>=MAX_PER_TILE){
-        it.p=0.99;
-        return;
-      }
-
-      it.x+=it.dx;
-      it.y+=it.dy;
-      it.p=0;
-
-      if(next.id==='conveyor'){
-        const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
-        it.dx=d[0];
-        it.dy=d[1];
-      }
-
-      if(next.id==='splitter'){
-        const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
-        const side=next.toggle?1:-1;
-        next.toggle=1-next.toggle;
-        const d=dirs[(next.dir+side+4)%4];
-        it.dx=d[0];
-        it.dy=d[1];
-      }
+      it.x+=it.dx; it.y+=it.dy; it.p=0;
     }
   });
 
-  for(let i=items.length-1;i>=0;i--){
-    if(items[i].dead) items.splice(i,1);
-  }
+  items.forEach(it=>{
+    if(it.dead) items.splice(items.indexOf(it),1);
+  });
 }
 
 function saveGame(){
-  if(machines.length===0) return;
   localStorage.setItem("factorySave",JSON.stringify({machines,RES,power}));
 }
 
 function loadGame(){
   const data=JSON.parse(localStorage.getItem("factorySave"));
-  if(!data) return;
+  if(!data)return;
 
   machines.length=0;
   Object.keys(grid).forEach(k=>delete grid[k]);
@@ -293,7 +231,6 @@ function loadGame(){
 
   RES.iron=data.RES.iron;
   RES.coal=data.RES.coal;
-  power=data.power;
 }
 
 loadGame();
@@ -301,67 +238,34 @@ setInterval(saveGame,5000);
 
 function toggleSettings(){
   const el=document.getElementById("settings");
-  el.style.display = (el.style.display==="none") ? "block" : "none";
+  el.style.display = el.style.display==="none"?"block":"none";
 }
 
 function resetGame(){
-  if(!confirm("データ消す？")) return;
   localStorage.removeItem("factorySave");
   location.reload();
-}
-
-function drawUI(){
-  document.getElementById("panel").innerHTML=
-    "<b>資源</b><br>"+
-    "🪨 鉄: "+RES.iron+"<br>"+
-    "⚫ 石炭: "+RES.coal+"<br><br>"+
-    "<b>電力</b><br>"+
-    "⚡ "+power;
 }
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  for(let x=0;x<COLS;x++){
-    for(let y=0;y<ROWS;y++){
-      ctx.strokeStyle="#333";
-      ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
-    }
-  }
-
   resourceNodes.forEach(n=>{
-    ctx.fillStyle=n.type==="iron"?"#555":"#111";
+    ctx.fillStyle=n.type==="iron"?"#666":"#222";
     ctx.fillRect(n.x*CELL,n.y*CELL,CELL,CELL);
   });
 
   machines.forEach(m=>{
-    const px=m.x*CELL,py=m.y*CELL;
-
-    ctx.fillStyle=
-      m.id==='miner'?"#6a3":
-      m.id==='power'?"#a33":
-      m.id==='storage'?"#36a":
-      m.id==='splitter'?"#aa6":"#888";
-
-    ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
-
-    ctx.fillStyle="#fff";
-
-    if(m.id==='miner') ctx.fillText("⛏",px+15,py+30);
-    if(m.id==='power') ctx.fillText("⚡",px+15,py+30);
-    if(m.id==='storage') ctx.fillText("📦",px+15,py+30);
-    if(m.id==='splitter') ctx.fillText("⇄",px+15,py+30);
-    if(m.id==='conveyor') ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
+    ctx.fillStyle="#888";
+    ctx.fillRect(m.x*CELL+5,m.y*CELL+5,CELL-10,CELL-10);
   });
 
   items.forEach(it=>{
-    const px=(it.x+it.dx*it.p)*CELL;
-    const py=(it.y+it.dy*it.p)*CELL;
-    ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
-    ctx.fillRect(px-6,py-3,12,6);
+    ctx.fillStyle="#fff";
+    ctx.fillRect(it.x*CELL,it.y*CELL,5,5);
   });
 
-  drawUI();
+  document.getElementById("panel").innerHTML=
+    "鉄:"+RES.iron+" 石炭:"+RES.coal;
 }
 
 function loop(){
@@ -370,9 +274,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-selectTool('miner');
 loop();
 </script>
-
 </body>
 </html>
