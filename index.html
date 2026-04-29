@@ -103,25 +103,42 @@ function getBonus(x,y){
 
 function update(){
   machines.forEach(m=>{
+
+    // 採掘機
     if(m.id==='miner'){
       if(Math.random()<0.02){
         m.buf+=getBonus(m.x,m.y);
       }
+
+      // 👇 前に流す
+      if(m.buf > 0){
+        const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+        const next=get(m.x+dir[0],m.y+dir[1]);
+
+        if(next){
+          next.buf=(next.buf||0)+1;
+          m.buf--;
+        }
+      }
+
+      // 👇 一部は直接加算（詰まり防止）
+      if(m.buf>10){
+        G.mat+=m.buf;
+        m.buf=0;
+      }
     }
 
+    // コンベア
     if(m.id==='conveyor'){
       const dir=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
       const next=get(m.x+dir[0],m.y+dir[1]);
+
       if(next && m.buf>0){
         next.buf=(next.buf||0)+1;
         m.buf--;
       }
     }
 
-    if(m.id==='miner' && m.buf>5){
-      G.mat+=m.buf;
-      m.buf=0;
-    }
   });
 }
 
