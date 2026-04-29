@@ -152,93 +152,14 @@ function getPos(e){
   };
 }
 
-// ===== 操作 =====
-let dragging=false;
-let lastX=-1,lastY=-1;
-let pressTimer=null;
-let startX,startY;
-let moved=false;
-
-let isPanning=false;
-let panStartX, panStartY;
-
+// ===== タッチ操作改善 =====
 let touchMode=false;
-
-// ★追加（1本指スクロール用）
 let singlePan=false;
+
+let startTouchX=0, startTouchY=0;
 let lastTouchX=0, lastTouchY=0;
+let touchMoved=false;
 
-// PC操作
-canvas.addEventListener("pointerdown",e=>{
-  if(touchMode) return;
-
-  if(e.button===1){
-    isPanning=true;
-    panStartX=e.clientX;
-    panStartY=e.clientY;
-    return;
-  }
-
-  const p=getPos(e);
-  dragging=true;
-  moved=false;
-
-  startX=p.x;
-  startY=p.y;
-  lastX=p.x;
-  lastY=p.y;
-
-  pressTimer=setTimeout(()=>remove(p.x,p.y),400);
-});
-
-canvas.addEventListener("pointermove",e=>{
-  if(touchMode) return;
-
-  if(isPanning){
-    const dx=(e.clientX-panStartX)/CELL;
-    const dy=(e.clientY-panStartY)/CELL;
-    camX-=dx;
-    camY-=dy;
-    panStartX=e.clientX;
-    panStartY=e.clientY;
-    return;
-  }
-
-  if(!dragging) return;
-
-  const p=getPos(e);
-
-  if(Math.abs(p.x-startX)+Math.abs(p.y-startY)>=1){
-    moved=true;
-    clearTimeout(pressTimer);
-  }
-
-  if(!moved) return;
-  if(p.x===lastX && p.y===lastY) return;
-
-  handleInput(e);
-
-  lastX=p.x;
-  lastY=p.y;
-});
-
-canvas.addEventListener("pointerup",e=>{
-  if(touchMode) return;
-
-  if(isPanning){
-    isPanning=false;
-    return;
-  }
-
-  dragging=false;
-  clearTimeout(pressTimer);
-
-  if(!moved){
-    handleInput(e);
-  }
-});
-
-// ===== スマホ操作 =====
 let lastMidX=0, lastMidY=0;
 let lastDist=0;
 
@@ -246,14 +167,17 @@ canvas.addEventListener("touchstart", e=>{
   if(e.touches.length===1){
     touchMode=true;
     singlePan=true;
+    touchMoved=false;
 
-    lastTouchX=e.touches[0].clientX;
-    lastTouchY=e.touches[0].clientY;
+    startTouchX=e.touches[0].clientX;
+    startTouchY=e.touches[0].clientY;
+
+    lastTouchX=startTouchX;
+    lastTouchY=startTouchY;
   }
 
   if(e.touches.length===2){
     touchMode=true;
-    dragging=false;
     singlePan=false;
 
     const t1=e.touches[0];
@@ -270,23 +194,28 @@ canvas.addEventListener("touchstart", e=>{
 });
 
 canvas.addEventListener("touchmove", e=>{
-  // ★1本指スクロール
   if(singlePan && e.touches.length===1){
     const t=e.touches[0];
 
-    const dx=(t.clientX-lastTouchX)/CELL;
-    const dy=(t.clientY-lastTouchY)/CELL;
+    const moveX=t.clientX-startTouchX;
+    const moveY=t.clientY-startTouchY;
 
-    camX-=dx;
-    camY-=dy;
+    // ★一定以上動いたらスクロール開始
+    if(Math.abs(moveX)+Math.abs(moveY) > 8){
+      touchMoved=true;
 
-    lastTouchX=t.clientX;
-    lastTouchY=t.clientY;
+      const dx=(t.clientX-lastTouchX)/CELL;
+      const dy=(t.clientY-lastTouchY)/CELL;
 
+      camX-=dx;
+      camY-=dy;
+
+      lastTouchX=t.clientX;
+      lastTouchY=t.clientY;
+    }
     return;
   }
 
-  // 2本指
   if(!touchMode || e.touches.length!==2) return;
 
   e.preventDefault();
@@ -319,6 +248,15 @@ canvas.addEventListener("touchmove", e=>{
 });
 
 canvas.addEventListener("touchend", e=>{
+  // ★タップだった場合のみ配置
+  if(singlePan && !touchMoved){
+    const fakeEvent={
+      clientX:startTouchX,
+      clientY:startTouchY
+    };
+    handleInput(fakeEvent);
+  }
+
   if(e.touches.length===0){
     touchMode=false;
     singlePan=false;
@@ -326,6 +264,7 @@ canvas.addEventListener("touchend", e=>{
   }
 });
 
+// ===== 入力処理 =====
 function handleInput(e){
   const p=getPos(e);
   const m=get(p.x,p.y);
