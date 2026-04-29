@@ -45,6 +45,22 @@ canvas{
   margin:auto;
   background:#222;
 }
+
+/* 設定画面 */
+#settings{
+position:fixed;
+left:50%;
+top:50%;
+transform:translate(-50%,-50%);
+background:#111;
+padding:20px;
+border-radius:12px;
+display:none;
+z-index:10;
+border:1px solid #555;
+min-width:200px;
+text-align:center;
+}
 </style>
 </head>
 
@@ -59,9 +75,18 @@ canvas{
   <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
 
   <button onclick="saveGame()">💾 保存</button>
+  <button onclick="toggleSettings()">⚙ 設定</button>
 </div>
 
 <div id="panel"></div>
+
+<div id="settings">
+  <h3>設定</h3>
+  <button onclick="saveGame()">💾 保存</button><br><br>
+  <button onclick="resetGame()">🗑 データ削除</button><br><br>
+  <button onclick="toggleSettings()">閉じる</button>
+</div>
+
 <canvas id="c"></canvas>
 
 <script>
@@ -258,11 +283,23 @@ function loadGame(){
   power=data.power;
 }
 
-// 自動ロード（起動時）
+// 自動ロード
 loadGame();
 
 // オートセーブ
 setInterval(saveGame,5000);
+
+// 設定UI
+function toggleSettings(){
+  const el=document.getElementById("settings");
+  el.style.display = (el.style.display==="none") ? "block" : "none";
+}
+
+function resetGame(){
+  if(!confirm("データ消す？")) return;
+  localStorage.removeItem("factorySave");
+  location.reload();
+}
 
 function drawUI(){
   document.getElementById("panel").innerHTML=
