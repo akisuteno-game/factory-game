@@ -3,440 +3,484 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Factory Lite+</title>
-
+<title>∞ Factory Nexus</title>
 <style>
-body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
-#ui{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  padding:8px;
-  background:#111;
-  border-bottom:2px solid #333;
+:root {
+  --bg: #0a0c0f;
+  --panel: #111820;
+  --border: #1e2d3d;
+  --accent: #00d4ff;
+  --accent2: #ff6b35;
+  --accent3: #7fff6b;
+  --gold: #ffd700;
+  --purple: #a855f7;
+  --text: #c8d8e8;
+  --text2: #6a8aaa;
+  --glow: 0 0 12px rgba(0,212,255,0.4);
+  --glow2: 0 0 12px rgba(255,107,53,0.4);
 }
-
-button{
-  padding:8px 10px;
-  border-radius:8px;
-  border:none;
-  background:#333;
-  color:#fff;
-}
-
-.active{background:#5a5}
-
-#panel{
-  position:fixed;
-  right:10px;
-  top:60px;
-  background:#000c;
-  padding:12px;
-  border-radius:10px;
-  font-size:14px;
-  border:1px solid #333;
-}
-
-canvas{
-  display:block;
-  margin:auto;
-  background:#222;
-  touch-action:none;
-}
-
-#settings{
-position:fixed;
-left:50%;
-top:50%;
-transform:translate(-50%,-50%);
-background:#111;
-padding:20px;
-border-radius:12px;
-display:none;
-border:1px solid #555;
-}
-
-/* ミニマップ */
-#mini{
-position:fixed;
-right:10px;
-bottom:10px;
-width:150px;
-height:100px;
-background:#000a;
-border:1px solid #555;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow:hidden;height:100vh;user-select:none}
+#topbar{position:fixed;top:0;left:0;right:0;height:50px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 10px;z-index:100;overflow-x:auto}
+#title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:14px;color:var(--accent);text-shadow:var(--glow);white-space:nowrap;margin-right:8px}
+.tool-btn{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:#1a2535;color:var(--text2);font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tool-btn.active{background:#0d2235;border-color:var(--accent);color:var(--accent);box-shadow:var(--glow)}
+.tool-btn.danger.active{border-color:var(--accent2);color:var(--accent2);box-shadow:var(--glow2)}
+#era-badge{margin-left:auto;font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,0.5);white-space:nowrap}
+canvas#c{position:fixed;top:50px;left:0;background:var(--bg);touch-action:none;cursor:crosshair}
+#rightpanel{position:fixed;right:0;top:50px;width:220px;height:calc(100vh - 50px);background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;font-size:12px;z-index:50;overflow:hidden}
+.rpanel-section{padding:10px;border-bottom:1px solid var(--border)}
+.rpanel-title{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--accent);margin-bottom:8px;letter-spacing:1px}
+.res-row{display:flex;justify-content:space-between;margin:3px 0;color:var(--text2)}
+.res-row span:last-child{color:var(--text)}
+#power-bar{height:6px;background:#1a2535;border-radius:3px;overflow:hidden;margin-top:4px}
+#power-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:3px;transition:width 0.3s}
+#craftModal{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:500px;max-height:90vh;background:var(--panel);border:1px solid var(--accent);border-radius:12px;box-shadow:var(--glow),0 0 60px rgba(0,0,0,0.8);z-index:200;overflow:hidden}
+#craftModal.show{display:flex;flex-direction:column}
+.modal-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:13px;color:var(--accent)}
+.close-btn{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer}
+.close-btn:hover{color:var(--accent2)}
+.modal-body{padding:16px;overflow-y:auto;display:flex;gap:16px;flex-wrap:wrap}
+#craftGrid{display:grid;grid-template-columns:repeat(5,46px);gap:4px}
+.craft-cell{width:46px;height:46px;background:#0a1520;border:1px solid var(--border);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all 0.15s}
+.craft-cell:hover{border-color:var(--accent);background:#0d1f30}
+.craft-cell.filled{border-color:var(--accent2)}
+.craft-right{flex:1;min-width:160px;display:flex;flex-direction:column;gap:10px}
+#craftResult{padding:14px;background:#0a1520;border:1px solid var(--border);border-radius:8px;text-align:center;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#craftResultIcon{font-size:32px}
+#craftResultName{font-size:12px;color:var(--accent3);margin-top:6px}
+.craft-input-select{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.mat-btn{padding:6px 4px;background:#0a1520;border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:16px;cursor:pointer;text-align:center;transition:all 0.15s}
+.mat-btn:hover{border-color:var(--accent)}
+.mat-btn.sel-mat{border-color:var(--accent2);background:#1a1510}
+.btn-primary{padding:10px;background:linear-gradient(135deg,#0d2235,#0a3040);border:1px solid var(--accent);border-radius:8px;color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:13px;cursor:pointer;text-align:center;transition:all 0.2s}
+.btn-primary:hover{background:#0d2f48;box-shadow:var(--glow)}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+#recipeModal{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:520px;max-height:85vh;background:var(--panel);border:1px solid var(--purple);border-radius:12px;z-index:200;overflow:hidden;flex-direction:column}
+#recipeModal.show{display:flex}
+.recipe-list{padding:12px;overflow-y:auto;flex:1}
+.recipe-card{padding:10px 12px;background:#0a1520;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.recipe-card.discovered{border-color:var(--accent3)}
+.recipe-card.locked{opacity:0.4;filter:blur(1px)}
+.recipe-icon{font-size:24px}
+.recipe-info{flex:1}
+.recipe-name{font-size:13px;color:var(--text)}
+.recipe-desc{font-size:11px;color:var(--text2);margin-top:3px}
+.recipe-grid-preview{display:grid;grid-template-columns:repeat(5,14px);gap:1px}
+.rg-cell{width:14px;height:14px;background:#1a2535;border-radius:2px;font-size:9px;display:flex;align-items:center;justify-content:center}
+#reincarModal{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;background:var(--panel);border:1px solid var(--gold);border-radius:12px;box-shadow:0 0 40px rgba(255,215,0,0.2);z-index:200;flex-direction:column}
+#reincarModal.show{display:flex}
+.reincar-body{padding:20px;text-align:center}
+.reincar-icon{font-size:64px;margin-bottom:12px;animation:spin 4s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.reincar-era{font-family:'Orbitron',sans-serif;font-size:20px;color:var(--gold);margin-bottom:8px}
+.reincar-desc{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px}
+.era-bonus{font-size:13px;color:var(--accent3);margin:8px 0}
+.era-requirements{font-size:12px;color:var(--text2);margin-bottom:16px;white-space:pre-line}
+#notifs{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:flex;flex-direction:column-reverse;gap:8px;z-index:300;pointer-events:none}
+.notif{padding:10px 18px;background:var(--panel);border-radius:8px;font-size:13px;animation:slideUp 0.3s ease,fadeOut 0.3s ease 2.7s forwards;border-left:3px solid var(--accent)}
+.notif.recipe{border-left-color:var(--gold);color:var(--gold)}
+.notif.era{border-left-color:var(--purple);color:var(--purple)}
+.notif.warn{border-left-color:var(--accent2)}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fadeOut{to{opacity:0;transform:translateY(-10px)}}
+#mini{position:fixed;left:10px;bottom:10px;width:160px;height:100px;background:#000a;border:1px solid var(--border);border-radius:6px;z-index:50}
+#dirBtns{display:flex;gap:4px;align-items:center}
+.dir-btn{width:28px;height:28px;background:#1a2535;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dir-btn.active{border-color:var(--accent);color:var(--accent)}
+#researchBtn{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;background:#0a1520;text-align:center;font-size:11px;color:var(--purple)}
+#scrollInfo{font-size:10px;color:var(--text2);padding:4px 8px;text-align:center;border-bottom:1px solid var(--border)}
 </style>
 </head>
-
 <body>
-
-<div id="ui">
-  <button onclick="selectTool('miner')" id="btn-miner">⛏ 採掘</button>
-  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡ コンベア</button>
-  <button onclick="selectTool('splitter')" id="btn-splitter">⇄ 分岐</button>
-  <button onclick="selectTool('power')" id="btn-power">⚡ 発電</button>
-  <button onclick="selectTool('storage')" id="btn-storage">📦 倉庫</button>
-  <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
-  <button onclick="toggleSettings()">⚙ 設定</button>
-</div>
-
-<div id="panel"></div>
-
-<div id="settings">
-  <h3>設定</h3>
-  <button onclick="saveGame()">💾 保存</button><br><br>
-  <button onclick="resetGame()">🗑 データ削除</button><br><br>
-  <button onclick="toggleSettings()">閉じる</button>
+<div id="topbar">
+  <div id="title">∞ FACTORY NEXUS</div>
+  <button class="tool-btn active" onclick="selectTool('miner')" id="btn-miner">⛏ 採掘機</button>
+  <button class="tool-btn" onclick="selectTool('conveyor')" id="btn-conveyor">➡ コンベア</button>
+  <button class="tool-btn" onclick="selectTool('splitter')" id="btn-splitter">⇄ 分岐</button>
+  <button class="tool-btn" onclick="selectTool('merger')" id="btn-merger">⇒ 合流</button>
+  <button class="tool-btn" onclick="selectTool('power')" id="btn-power">⚡ 発電炉</button>
+  <button class="tool-btn" onclick="selectTool('storage')" id="btn-storage">📦 倉庫</button>
+  <button class="tool-btn" onclick="selectTool('crafter')" id="btn-crafter">🔧 加工機</button>
+  <div id="dirBtns">
+    <div style="font-size:10px;color:var(--text2)">向き:</div>
+    <div class="dir-btn active" id="dir0" onclick="setDir(0)">→</div>
+    <div class="dir-btn" id="dir1" onclick="setDir(1)">↓</div>
+    <div class="dir-btn" id="dir2" onclick="setDir(2)">←</div>
+    <div class="dir-btn" id="dir3" onclick="setDir(3)">↑</div>
+  </div>
+  <button class="tool-btn danger" onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
+  <button class="tool-btn" onclick="openCraft()">⚗ レシピ実験</button>
+  <button class="tool-btn" onclick="openRecipes()">📖 図鑑</button>
+  <button class="tool-btn" onclick="openReincarnation()" style="color:var(--gold)">🌀 転生</button>
+  <button class="tool-btn" onclick="saveGame()">💾</button>
+  <button class="tool-btn" onclick="resetGame()">🗑初期化</button>
+  <div id="era-badge">▶ ERA <span id="era-name">石器時代</span></div>
 </div>
 
 <canvas id="c"></canvas>
 <canvas id="mini"></canvas>
 
+<div id="rightpanel">
+  <div id="scrollInfo">ドラッグでスクロール | ホイールでズーム</div>
+  <div id="researchBtn" onclick="openRecipes()">📖 発見: <span id="discCount">0</span> / <span id="totalCount">15</span></div>
+  <div class="rpanel-section">
+    <div class="rpanel-title">RESOURCES</div>
+    <div id="res-display"></div>
+  </div>
+  <div class="rpanel-section">
+    <div class="rpanel-title">POWER</div>
+    <div class="res-row"><span>⚡ 蓄電</span><span id="powerVal">100/500</span></div>
+    <div id="power-bar"><div id="power-fill" style="width:20%"></div></div>
+  </div>
+  <div class="rpanel-section">
+    <div class="rpanel-title">STATS</div>
+    <div class="res-row"><span>⏱ 稼働時間</span><span id="statTime">0s</span></div>
+    <div class="res-row"><span>📦 総生産</span><span id="statProd">0</span></div>
+    <div class="res-row"><span>🔧 機械数</span><span id="statMach">0</span></div>
+  </div>
+  <div class="rpanel-section" style="flex:1;overflow-y:auto">
+    <div class="rpanel-title">最近の発見</div>
+    <div id="recent-disc" style="font-size:11px;color:var(--text2);line-height:1.8"></div>
+  </div>
+</div>
+
+<div id="craftModal">
+  <div class="modal-header">
+    <span>⚗ レシピ実験台 — 5×5グリッド</span>
+    <button class="close-btn" onclick="closeCraft()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">📐 素材を配置してレシピを発見しよう</div>
+      <div id="craftGrid"></div>
+      <div style="margin-top:10px">
+        <button class="btn-primary" onclick="clearCraftGrid()" style="width:100%;padding:7px">クリア</button>
+      </div>
+    </div>
+    <div class="craft-right">
+      <div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">🎯 配置する素材を選択</div>
+        <div class="craft-input-select" id="matSelect"></div>
+      </div>
+      <div id="craftResult">
+        <div id="craftResultIcon">❓</div>
+        <div id="craftResultName">素材を配置してみよう</div>
+      </div>
+      <button class="btn-primary" id="craftExecBtn" onclick="executeCraft()" disabled>🔨 加工実行</button>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6" id="craftHint">ヒント: 素材の並べ方でアイテムが変わる！</div>
+    </div>
+  </div>
+</div>
+
+<div id="recipeModal">
+  <div class="modal-header" style="border-bottom-color:#333;color:var(--purple)">
+    <span>📖 レシピ図鑑</span>
+    <button class="close-btn" onclick="closeRecipes()">✕</button>
+  </div>
+  <div class="recipe-list" id="recipeList"></div>
+</div>
+
+<div id="reincarModal">
+  <div class="modal-header" style="border-bottom-color:#3d3010;color:var(--gold)">
+    <span>🌀 転生システム</span>
+    <button class="close-btn" onclick="closeReincarnation()">✕</button>
+  </div>
+  <div class="reincar-body">
+    <div class="reincar-icon" id="reincarIcon">🌱</div>
+    <div class="reincar-era" id="reincarEraName">次の時代へ</div>
+    <div class="reincar-desc" id="reincarDesc"></div>
+    <div class="era-bonus" id="reincarBonus"></div>
+    <div class="era-requirements" id="reincarReqs"></div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn-primary" id="reincarBtn" onclick="doReincarnate()" style="border-color:var(--gold);color:var(--gold);flex:1">🌀 転生する</button>
+      <button class="btn-primary" onclick="closeReincarnation()" style="flex:1">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<div id="notifs"></div>
 <script>
-let CELL=50;
-const COLS=40, ROWS=30;
-const MAX_PER_TILE=3;
+const CELL=52, MAX_TILE=4;
+const DIRS=[[1,0],[0,1],[-1,0],[0,-1]];
+const DIR_CHARS=['→','↓','←','↑'];
 
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
+const MATS={
+  iron:{icon:'🪨',name:'鉄鉱石',color:'#6494b4'},
+  coal:{icon:'⚫',name:'石炭',color:'#3a4455'},
+  copper:{icon:'🟤',name:'銅鉱石',color:'#c07030'},
+  crystal:{icon:'💎',name:'水晶',color:'#6070e0'},
+  wood:{icon:'🪵',name:'木材',color:'#7a5a30'},
+  stone:{icon:'🪨',name:'石',color:'#808090'},
+  steel:{icon:'⚙️',name:'鉄板',color:'#8090a0'},
+  wire:{icon:'🔌',name:'銅線',color:'#d09030'},
+  gear:{icon:'⚙',name:'歯車',color:'#909090'},
+  circuit:{icon:'🔲',name:'回路',color:'#208060'},
+  glass:{icon:'🫙',name:'ガラス',color:'#a0d0e0'},
+  magnet:{icon:'🧲',name:'磁石',color:'#d03030'},
+  lens:{icon:'🔍',name:'レンズ',color:'#80c0e0'},
+  engine:{icon:'🚂',name:'エンジン',color:'#506080'},
+  battery:{icon:'🔋',name:'電池',color:'#40a040'},
+  chip:{icon:'💾',name:'チップ',color:'#6080c0'},
+  robot:{icon:'🤖',name:'ロボット',color:'#c0c0e0'},
+  mana_crystal:{icon:'🔮',name:'魔力石',color:'#a050e0'},
+  philosopher:{icon:'🌟',name:'賢者の石',color:'#ffd700'},
+  timepiece:{icon:'⏳',name:'時計',color:'#d0a040'},
+  portal:{icon:'🌀',name:'ポータル',color:'#8040d0'},
+};
 
-const mini=document.getElementById('mini');
-const mctx=mini.getContext('2d');
+const RECIPES=[
+  {id:'steel',name:'鉄板',output:'steel',count:2,pattern:[null,null,null,null,null,null,'iron','iron','iron',null,null,'iron',null,'iron',null,null,'iron','iron','iron',null,null,null,null,null,null],hint:'鉄鉱石3×3の枠',era:0},
+  {id:'wire',name:'銅線',output:'wire',count:3,pattern:[null,null,null,null,null,null,'copper','copper','copper','copper',null,null,null,null,null,null,'copper','copper','copper','copper',null,null,null,null,null],hint:'銅を2行に並べる',era:0},
+  {id:'gear',name:'歯車',output:'gear',count:1,pattern:[null,'iron',null,'iron',null,'iron','iron','iron','iron','iron',null,'iron',null,'iron',null,'iron','iron','iron','iron','iron',null,'iron',null,'iron',null],hint:'鉄で格子模様',era:0},
+  {id:'glass',name:'ガラス',output:'glass',count:2,pattern:[null,null,null,null,null,null,'crystal','crystal','crystal',null,null,'crystal','crystal','crystal',null,null,'crystal','crystal','crystal',null,null,null,null,null,null],hint:'水晶3×3ブロック',era:0},
+  {id:'magnet',name:'磁石',output:'magnet',count:1,pattern:['iron',null,null,null,'iron','iron',null,null,null,'iron','iron','iron','iron','iron','iron',null,'coal','coal','coal',null,null,null,null,null,null],hint:'U字型の鉄＋石炭',era:0},
+  {id:'circuit',name:'回路',output:'circuit',count:1,pattern:[null,'wire',null,'wire',null,'wire','glass','wire','glass','wire',null,'wire',null,'wire',null,'wire','glass','wire','glass','wire',null,'wire',null,'wire',null],hint:'銅線とガラスを交互に',era:1},
+  {id:'battery',name:'電池',output:'battery',count:2,pattern:[null,'steel',null,'steel',null,'steel','wire','coal','wire','steel','steel','wire','coal','wire','steel','steel','wire','coal','wire','steel',null,'steel',null,'steel',null],hint:'鉄枠＋石炭コア＋銅線',era:1},
+  {id:'lens',name:'レンズ',output:'lens',count:1,pattern:[null,null,'glass',null,null,null,'glass','glass','glass',null,'glass','glass','crystal','glass','glass',null,'glass','glass','glass',null,null,null,'glass',null,null],hint:'水晶中心のダイヤ形ガラス',era:1},
+  {id:'engine',name:'エンジン',output:'engine',count:1,pattern:['steel','gear','steel','gear','steel','gear','coal','coal','coal','gear','steel','coal','wire','coal','steel','gear','coal','coal','coal','gear','steel','gear','steel','gear','steel'],hint:'外枠歯車＋内側石炭＋銅線中心',era:1},
+  {id:'chip',name:'チップ',output:'chip',count:1,pattern:[null,'wire','circuit','wire',null,'wire','circuit','glass','circuit','wire','circuit','glass','circuit','glass','circuit','wire','circuit','glass','circuit','wire',null,'wire','circuit','wire',null],hint:'回路＋ガラス交互配置',era:2},
+  {id:'robot',name:'ロボット',output:'robot',count:1,pattern:[null,'steel','chip','steel',null,'steel','magnet','wire','magnet','steel','gear','wire','battery','wire','gear','steel','gear','engine','gear','steel',null,'steel','steel','steel',null],hint:'複合部品でロボットを組み上げる',era:2},
+  {id:'mana_crystal',name:'魔力石',output:'mana_crystal',count:1,pattern:[null,'crystal',null,'crystal',null,'crystal','lens','crystal','lens','crystal',null,'crystal','glass','crystal',null,'crystal','lens','crystal','lens','crystal',null,'crystal',null,'crystal',null],hint:'水晶の花びら模様',era:2},
+  {id:'timepiece',name:'時計',output:'timepiece',count:1,pattern:[null,'gear','steel','gear',null,'gear','crystal','wire','crystal','gear','steel','wire','glass','wire','steel','gear','crystal','wire','crystal','gear',null,'gear','steel','gear',null],hint:'歯車と水晶の精密時計',era:2},
+  {id:'philosopher',name:'賢者の石',output:'philosopher',count:1,pattern:['mana_crystal','lens','crystal','lens','mana_crystal','lens','circuit','chip','circuit','lens','crystal','chip','robot','chip','crystal','lens','circuit','chip','circuit','lens','mana_crystal','lens','crystal','lens','mana_crystal'],hint:'全てを統合する究極レシピ',era:3},
+  {id:'portal',name:'ポータル',output:'portal',count:1,pattern:[null,'mana_crystal','timepiece','mana_crystal',null,'mana_crystal','philosopher',null,'philosopher','mana_crystal','timepiece',null,'lens',null,'timepiece','mana_crystal','philosopher',null,'philosopher','mana_crystal',null,'mana_crystal','timepiece','mana_crystal',null],hint:'魔力と時計と賢者の石でポータルを開く',era:4},
+];
 
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight-60;
+const ERAS=[
+  {id:0,name:'石器時代',icon:'🌱',desc:'採掘と基本加工の時代。',bonus:'採掘速度+0%',bonusMult:{mineSpeed:1.0},next:1,requirement:{items:{steel:20,gear:5},recipes:['steel','gear','wire']}},
+  {id:1,name:'産業革命',icon:'🏭',desc:'蒸気機関と工業化の夜明け。',bonus:'採掘速度+50%、電力効率+30%',bonusMult:{mineSpeed:1.5,powerEff:1.3},next:2,requirement:{items:{engine:5,battery:10,circuit:8},recipes:['circuit','battery','engine']}},
+  {id:2,name:'デジタル革命',icon:'💻',desc:'チップとロボットの時代。',bonus:'採掘速度×2、コンベア速度+50%',bonusMult:{mineSpeed:2.0,conveyorSpeed:1.5},next:3,requirement:{items:{chip:10,robot:3},recipes:['chip','robot','mana_crystal']}},
+  {id:3,name:'魔法文明',icon:'🔮',desc:'技術と魔法が融合する時代。',bonus:'全生産×3、魔力素材解放',bonusMult:{mineSpeed:3.0,conveyorSpeed:2.0,craftMult:3},next:4,requirement:{items:{philosopher:3},recipes:['philosopher','timepiece']}},
+  {id:4,name:'次元越え',icon:'🌌',desc:'時空を超えた究極の文明。',bonus:'全ての生産が最大化',bonusMult:{mineSpeed:5.0,conveyorSpeed:3.0,craftMult:5},next:null,requirement:{items:{portal:1},recipes:['portal']}},
+];
+  
+  let state={era:0,eraCount:0,power:100,maxPower:500,RES:{},discoveredRecipes:new Set(),playTime:0,totalProduced:0,recentDisc:[]};
+Object.keys(MATS).forEach(k=>state.RES[k]=0);
+const machines=[],items=[],grid={};
+let craftGridData=new Array(25).fill(null),selectedMat='iron';
+const resourceNodes={},checkedNodes={};
 
-mini.width=150;
-mini.height=100;
+function rkey(x,y){return x+','+y}
+function noise(x,y){return Math.abs(Math.sin(x*127.1+y*311.7+state.eraCount*73)*43758.5453)%1}
+const ERA_RESOURCES=[['iron','coal','stone'],['iron','coal','copper','stone'],['iron','coal','copper','crystal','stone'],['iron','coal','copper','crystal','wood','stone'],['iron','coal','copper','crystal','wood','stone']];
 
-let camX=0, camY=0;
-
-let selected='miner';
-
-const grid={}, machines=[], items=[];
-const RES={iron:0,coal:0};
-let power=50;
-
-// ===== 超軽量 無限マップ =====
-const resourceNodes={};
-const checkedNodes={};
-
-function rkey(x,y){return x+","+y}
-
-function rand(x,y){
-  return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
-}
-
-// ★5マス塊保証
-function generateCluster(x,y,type){
-  const cluster=[{x,y}];
-
-  while(cluster.length<5){
-    const base=cluster[Math.floor(rand(cluster.length,x)*cluster.length)];
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    const d=dirs[Math.floor(rand(base.x,base.y)*4)];
-
-    const nx=base.x+d[0];
-    const ny=base.y+d[1];
-
-    if(!cluster.find(n=>n.x===nx&&n.y===ny)){
-      cluster.push({x:nx,y:ny});
-    }
-  }
-
-  cluster.forEach(n=>{
-    resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
-  });
+function generateCluster(ox,oy,type){
+  const cluster=[{x:ox,y:oy}];
+  let tries=0;
+  while(cluster.length<5&&tries<50){tries++;const base=cluster[Math.floor(noise(tries,ox)*cluster.length)];const d=DIRS[Math.floor(noise(base.x,base.y+tries)*4)];const nx=base.x+d[0],ny=base.y+d[1];if(!cluster.find(n=>n.x===nx&&n.y===ny))cluster.push({x:nx,y:ny});}
+  cluster.forEach(n=>{resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};});
 }
 
 function getResource(x,y){
   const k=rkey(x,y);
-
-  if(resourceNodes[k]) return resourceNodes[k];
-  if(checkedNodes[k]) return null;
-
+  if(resourceNodes[k])return resourceNodes[k];
+  if(checkedNodes[k])return null;
   checkedNodes[k]=true;
-
-  if(rand(x,y) > 0.995){
-    const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
-    generateCluster(x,y,type);
-  }
-
-  if(Object.keys(checkedNodes).length>5000){
-    for(const key in checkedNodes){ delete checkedNodes[key]; break; }
-  }
-
-  return resourceNodes[k] || null;
+  const pool=ERA_RESOURCES[Math.min(state.era,4)];
+  if(noise(x,y)>0.993){const type=pool[Math.floor(noise(x+999,y+777)*pool.length)];generateCluster(x,y,type);}
+  if(Object.keys(checkedNodes).length>8000){const keys=Object.keys(checkedNodes);for(let i=0;i<200;i++)delete checkedNodes[keys[i]];}
+  return resourceNodes[k]||null;
 }
 
-// ===== 設定 =====
-function toggleSettings(){
-  const el=document.getElementById("settings");
-  el.style.display = el.style.display==="none" ? "block" : "none";
-}
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const mini=document.getElementById('mini');
+const mctx=mini.getContext('2d');
+let cw=window.innerWidth-220,ch=window.innerHeight-50;
+canvas.width=cw;canvas.height=ch;
+mini.width=160;mini.height=100;
+let camX=0,camY=0,zoom=1.0;
+window.addEventListener('resize',()=>{cw=window.innerWidth-220;ch=window.innerHeight-50;canvas.width=cw;canvas.height=ch;});
 
-function saveGame(){
-  localStorage.setItem("factorySave",JSON.stringify({
-    machines,items,RES,power,camX,camY
-  }));
-}
+let selected='miner',curDir=0,dragMode=false,lx=0,ly=0,isDragging=false,mouseDownPos={x:0,y:0};
 
-function resetGame(){
-  localStorage.clear();
-  location.reload();
-}
-
-function key(x,y){return x+","+y}
-function get(x,y){return grid[key(x,y)]}
-
-function countItems(x,y){
-  let c=0;
-  for(let i=0;i<items.length;i++){
-    const it=items[i];
-    if((it.x|0)===x && (it.y|0)===y) c++;
-  }
-  return c;
-}
-
-function selectTool(t){
-  selected=t;
-  document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
-  document.getElementById("btn-"+t)?.classList.add("active");
-}
+function selectTool(t){selected=t;document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));const el=document.getElementById('btn-'+t);if(el)el.classList.add('active');}
+function setDir(d){curDir=d;document.querySelectorAll('.dir-btn').forEach((b,i)=>b.classList.toggle('active',i===d));}
+function gkey(x,y){return x+','+y}
+function get(x,y){return grid[gkey(x,y)]}
+function countItemsAt(x,y){let c=0;for(let i=0;i<items.length;i++){const it=items[i];if((it.x|0)===x&&(it.y|0)===y)c++;}return c;}
 
 function place(x,y){
-  if(get(x,y)) return;
+  if(get(x,y))return;
   const node=getResource(x,y);
-  if(selected==='miner' && !node) return;
-
-  const m={id:selected,x,y,dir:0,cool:0,type:node?.type||"iron",toggle:0};
-  machines.push(m);
-  grid[key(x,y)]=m;
+  if(selected==='miner'&&!node){notify('⛏ 資源がありません','warn');return;}
+  const m={id:selected,x,y,dir:curDir,cool:0,type:node?.type||'iron',toggle:0,craftAssign:null,craftProgress:0};
+  machines.push(m);grid[gkey(x,y)]=m;
 }
 
 function remove(x,y){
-  const m=get(x,y);
-  if(!m) return;
-  delete grid[key(x,y)];
-  machines.splice(machines.indexOf(m),1);
+  const m=get(x,y);if(!m)return;
+  delete grid[gkey(x,y)];machines.splice(machines.indexOf(m),1);
+  for(let i=items.length-1;i>=0;i--){if((items[i].x|0)===x&&(items[i].y|0)===y)items.splice(i,1);}
 }
 
-function rotate(m){m.dir=(m.dir+1)%4}
+function screenToWorld(sx,sy){return{x:Math.floor(sx/CELL/zoom+camX),y:Math.floor(sy/CELL/zoom+camY)};}
 
-function getPos(e){
-  const r=canvas.getBoundingClientRect();
-  return {
-    x:Math.floor((e.clientX-r.left)/CELL + camX),
-    y:Math.floor((e.clientY-r.top)/CELL + camY)
-  };
+canvas.addEventListener('mousedown',e=>{lx=e.clientX;ly=e.clientY;mouseDownPos={x:e.clientX,y:e.clientY};isDragging=false;dragMode=true;});
+canvas.addEventListener('mousemove',e=>{if(dragMode){const dx=e.clientX-lx,dy=e.clientY-ly;if(!isDragging&&(Math.abs(e.clientX-mouseDownPos.x)>5||Math.abs(e.clientY-mouseDownPos.y)>5))isDragging=true;if(isDragging){camX-=dx/CELL/zoom;camY-=dy/CELL/zoom;lx=e.clientX;ly=e.clientY;}}});
+canvas.addEventListener('mouseup',e=>{dragMode=false;if(!isDragging){const rect=canvas.getBoundingClientRect();const p=screenToWorld(e.clientX-rect.left,e.clientY-rect.top);handleClick(p.x,p.y,e);}isDragging=false;});
+canvas.addEventListener('mouseleave',()=>{dragMode=false;isDragging=false;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();const delta=e.deltaY>0?0.9:1.1;const oldZoom=zoom;zoom=Math.max(0.3,Math.min(2.5,zoom*delta));const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;camX+=mx/CELL/oldZoom-mx/CELL/zoom;camY+=my/CELL/oldZoom-my/CELL/zoom;},{passive:false});
+
+function handleClick(wx,wy,e){
+  const m=get(wx,wy);
+  if(selected==='delete'){remove(wx,wy);return;}
+  if(m){if(m.id==='conveyor'||m.id==='splitter'||m.id==='merger')m.dir=(m.dir+1)%4;else if(m.id==='crafter')openCrafterAssign(m);return;}
+  place(wx,wy);
 }
 
-/* ========= ここが修正（追加のみ） ========= */
+function spawnItem(m){if(countItemsAt(m.x,m.y)>=MAX_TILE)return false;const d=DIRS[m.dir];items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});state.totalProduced++;return true;}
+function nextMachine(it){return get(Math.floor(it.x+it.dx),Math.floor(it.y+it.dy));}
+function eraMult(key){return ERAS[state.era].bonusMult[key]||1.0;}
 
-// pointer系を無効化
-canvas.addEventListener("pointerdown",e=>{return});
-canvas.addEventListener("pointermove",e=>{return});
-canvas.addEventListener("pointerup",e=>{return});
-
-// クリックで設置
-canvas.addEventListener("click",e=>{
-  const p=getPos(e);
-  const m=get(p.x,p.y);
-
-  if(selected==='delete'){ remove(p.x,p.y); return; }
-  if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
-  else place(p.x,p.y);
-});
-
-// ドラッグでスクロール
-let drag=false, lx=0, ly=0;
-
-canvas.addEventListener("mousedown",e=>{
-  drag=true;
-  lx=e.clientX;
-  ly=e.clientY;
-});
-
-canvas.addEventListener("mousemove",e=>{
-  if(!drag) return;
-  camX-=(e.clientX-lx)/CELL;
-  camY-=(e.clientY-ly)/CELL;
-  lx=e.clientX;
-  ly=e.clientY;
-});
-
-canvas.addEventListener("mouseup",()=>drag=false);
-
-/* ========= ここまで ========= */
-
-function spawn(m){
-  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
-  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
-}
-
-function nextTile(it){
-  return get(Math.floor(it.x+it.dx),Math.floor(it.y+it.dy));
-}
-
+let tick=0;
 function update(){
+  tick++;
+  if(tick%60===0)state.playTime++;
+  const mineInterval=Math.max(5,Math.floor(40/eraMult('mineSpeed')));
+  const convSpeed=0.05*eraMult('conveyorSpeed');
   machines.forEach(m=>{
-    if(m.cool>0) m.cool--;
-    if(m.id==='miner' && power>0 && m.cool===0){
-      spawn(m); m.cool=40; power--;
-    }
-    if(m.id==='power'){
-      items.forEach(it=>{
-        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
-          if(it.type==='coal'){ power+=10; it.dead=true; }
-        }
-      });
-    }
-    if(m.id==='storage'){
-      items.forEach(it=>{
-        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
-          RES[it.type]++; it.dead=true;
-        }
-      });
+    if(m.cool>0)m.cool--;
+    if(m.id==='miner'&&state.power>0&&m.cool===0){if(spawnItem(m)){m.cool=mineInterval;state.power=Math.max(0,state.power-1);}}
+    if(m.id==='power'){for(let i=items.length-1;i>=0;i--){const it=items[i];if(Math.floor(it.x)===m.x&&Math.floor(it.y)===m.y&&it.type==='coal'){state.power=Math.min(state.maxPower,state.power+15*eraMult('powerEff'));it.dead=true;}}}
+    if(m.id==='storage'){for(let i=items.length-1;i>=0;i--){const it=items[i];if(Math.floor(it.x)===m.x&&Math.floor(it.y)===m.y){state.RES[it.type]=(state.RES[it.type]||0)+1;it.dead=true;}}}
+    if(m.id==='crafter'&&m.craftAssign&&m.cool===0){
+      const rec=RECIPES.find(r=>r.id===m.craftAssign);
+      if(rec){const needed={};rec.pattern.forEach(p=>{if(p)needed[p]=(needed[p]||0)+1;});let canCraft=true;for(const[k,v]of Object.entries(needed)){if((state.RES[k]||0)<v){canCraft=false;break;}}
+      if(canCraft){for(const[k,v]of Object.entries(needed))state.RES[k]-=v;const mult=Math.ceil(eraMult('craftMult')||1);state.RES[rec.output]=(state.RES[rec.output]||0)+(rec.count||1)*mult;m.cool=120;checkRecipeDiscover(rec.id);notify(`🔧 ${MATS[rec.output]?.icon}${MATS[rec.output]?.name} 生産`);}}
     }
   });
-
   items.forEach(it=>{
-    it.p+=0.05;
-    if(it.p>=1){
-      const next=nextTile(it);
-      if(!next){ it.p=0.99; return; }
-
-      const nx=Math.floor(it.x+it.dx);
-      const ny=Math.floor(it.y+it.dy);
-      if(countItems(nx,ny)>=MAX_PER_TILE){ it.p=0.99; return; }
-
-      it.x+=it.dx; it.y+=it.dy; it.p=0;
-
-      if(next.id==='conveyor'){
-        const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
-        it.dx=d[0]; it.dy=d[1];
-      }
-      if(next.id==='splitter'){
-        const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
-        const side=next.toggle?1:-1;
-        next.toggle=1-next.toggle;
-        const d=dirs[(next.dir+side+4)%4];
-        it.dx=d[0]; it.dy=d[1];
-      }
-    }
+    it.p+=convSpeed;
+    if(it.p>=1){const next=nextMachine(it);if(!next){it.p=0.99;return;}const nx=Math.floor(it.x+it.dx),ny=Math.floor(it.y+it.dy);if(countItemsAt(nx,ny)>=MAX_TILE){it.p=0.99;return;}
+    it.x+=it.dx;it.y+=it.dy;it.p=0;
+    if(next.id==='conveyor'){const d=DIRS[next.dir];it.dx=d[0];it.dy=d[1];}
+    if(next.id==='splitter'){next.toggle=1-next.toggle;const d=DIRS[(next.dir+(next.toggle?1:-1)+4)%4];it.dx=d[0];it.dy=d[1];}
+    if(next.id==='merger'){const d=DIRS[next.dir];it.dx=d[0];it.dy=d[1];}}
   });
-
-  for(let i=items.length-1;i>=0;i--){
-    if(items[i].dead){
-      items[i]=items[items.length-1];
-      items.pop();
-    }
-  }
+  for(let i=items.length-1;i>=0;i--){if(items[i].dead){items[i]=items[items.length-1];items.pop();}}
+  if(tick%120===0&&state.power>0)state.power=Math.max(0,state.power-0.5);
 }
 
-let uiTick=0;
+function checkRecipeDiscover(id){
+  if(!state.discoveredRecipes.has(id)){state.discoveredRecipes.add(id);const rec=RECIPES.find(r=>r.id===id);notify(`📖 新レシピ発見: ${MATS[rec.output]?.icon}${rec.name}！`,'recipe');state.recentDisc.unshift(`${MATS[rec.output]?.icon}${rec.name}`);if(state.recentDisc.length>10)state.recentDisc.pop();document.getElementById('recent-disc').innerHTML=state.recentDisc.map(d=>`<div style="color:var(--gold)">${d}</div>`).join('');updateDiscoveryCount();}
+}
+function updateDiscoveryCount(){document.getElementById('discCount').textContent=state.discoveredRecipes.size;document.getElementById('totalCount').textContent=RECIPES.length;}
 
-function drawUI(){
-  uiTick++;
-  if(uiTick%10!==0) return;
+let craftAssignTarget=null;
+function openCraft(){craftAssignTarget=null;buildCraftGrid();buildMatSelect();checkCraftResult();document.getElementById('craftModal').classList.add('show');}
+function openCrafterAssign(m){craftAssignTarget=m;clearCraftGrid();buildCraftGrid();buildMatSelect();checkCraftResult();document.getElementById('craftModal').classList.add('show');}
+function closeCraft(){document.getElementById('craftModal').classList.remove('show');craftAssignTarget=null;}
 
-  document.getElementById("panel").innerHTML=
-    "<b>資源</b><br>"+
-    "🪨 鉄: "+RES.iron+"<br>"+
-    "⚫ 石炭: "+RES.coal+"<br><br>"+
-    "<b>電力</b><br>"+
-    "⚡ "+power;
+function buildCraftGrid(){
+  const el=document.getElementById('craftGrid');el.innerHTML='';
+  for(let i=0;i<25;i++){const cell=document.createElement('div');cell.className='craft-cell'+(craftGridData[i]?' filled':'');cell.textContent=craftGridData[i]?MATS[craftGridData[i]]?.icon:'';cell.addEventListener('click',()=>{craftGridData[i]=craftGridData[i]===selectedMat?null:selectedMat;buildCraftGrid();checkCraftResult();});el.appendChild(cell);}
+}
+function buildMatSelect(){
+  const el=document.getElementById('matSelect');el.innerHTML='';
+  Object.keys(MATS).forEach(k=>{const btn=document.createElement('div');btn.className='mat-btn'+(k===selectedMat?' sel-mat':'');btn.title=MATS[k].name;btn.textContent=MATS[k].icon;btn.addEventListener('click',()=>{selectedMat=k;buildMatSelect();});el.appendChild(btn);});
+}
+function clearCraftGrid(){craftGridData=new Array(25).fill(null);buildCraftGrid();checkCraftResult();}
+function checkCraftResult(){
+  const match=RECIPES.find(rec=>{for(let i=0;i<25;i++){if((craftGridData[i]||null)!==(rec.pattern[i]||null))return false;}return true;});
+  document.getElementById('craftResultIcon').textContent=match?MATS[match.output]?.icon:'❓';
+  document.getElementById('craftResultName').textContent=match?`${match.name} ×${match.count}`:'一致するレシピなし';
+  document.getElementById('craftResultName').style.color=match?'var(--accent3)':'var(--text2)';
+  document.getElementById('craftExecBtn').disabled=!match;
+  document.getElementById('craftHint').textContent=match?'✨ レシピ一致！加工実行で作成できます':'ヒント: 素材の並べ方でアイテムが変わる！';
+}
+function executeCraft(){
+  const match=RECIPES.find(rec=>{for(let i=0;i<25;i++){if((craftGridData[i]||null)!==(rec.pattern[i]||null))return false;}return true;});
+  if(!match)return;
+  const needed={};match.pattern.forEach(p=>{if(p)needed[p]=(needed[p]||0)+1;});
+  for(const[k,v]of Object.entries(needed)){if((state.RES[k]||0)<v){notify(`❌ 素材不足: ${MATS[k]?.name} あと${v-(state.RES[k]||0)}個必要`,'warn');return;}}
+  for(const[k,v]of Object.entries(needed))state.RES[k]-=v;
+  const mult=Math.ceil(eraMult('craftMult')||1),outCount=(match.count||1)*mult;
+  state.RES[match.output]=(state.RES[match.output]||0)+outCount;
+  checkRecipeDiscover(match.id);
+  if(craftAssignTarget){craftAssignTarget.craftAssign=match.id;notify(`🔧 加工機に「${match.name}」を設定しました`);}
+  else notify(`✅ ${MATS[match.output]?.icon}${match.name} ×${outCount} 完成！`,'recipe');
+  clearCraftGrid();closeCraft();
 }
 
-let miniFrame=0;
-function drawMini(){
-  miniFrame++;
-  if(miniFrame%6!==0) return;
-
-  mctx.clearRect(0,0,mini.width,mini.height);
-
-  const scaleX=mini.width/200;
-  const scaleY=mini.height/200;
-
-  for(let i=0;i<machines.length;i+=2){
-    const m=machines[i];
-    mctx.fillStyle=
-      m.id==='miner'?"#6a3":
-      m.id==='power'?"#a33":
-      m.id==='storage'?"#36a":"#aaa";
-
-    mctx.fillRect(m.x*scaleX,m.y*scaleY,2,2);
-  }
-
-  mctx.strokeStyle="#fff";
-  mctx.strokeRect(camX*scaleX,camY*scaleY,COLS*scaleX,ROWS*scaleY);
+function openRecipes(){
+  const el=document.getElementById('recipeList');el.innerHTML='';
+  RECIPES.forEach(rec=>{const disc=state.discoveredRecipes.has(rec.id);const card=document.createElement('div');card.className='recipe-card '+(disc?'discovered':'locked');
+  let preview='';if(disc){preview='<div class="recipe-grid-preview">';for(let i=0;i<25;i++){const p=rec.pattern[i];preview+=`<div class="rg-cell">${p?MATS[p]?.icon:''}</div>`;}preview+='</div>';}
+  card.innerHTML=`<div class="recipe-icon">${disc?MATS[rec.output]?.icon:'🔒'}</div><div class="recipe-info"><div class="recipe-name">${disc?rec.name:'???'}</div><div class="recipe-desc">${disc?`出力: ${MATS[rec.output]?.name} ×${rec.count}　ヒント: ${rec.hint}`:'未発見'}</div></div>${disc?preview:''}`;
+  el.appendChild(card);});
+  document.getElementById('recipeModal').classList.add('show');
 }
+function closeRecipes(){document.getElementById('recipeModal').classList.remove('show');}
 
+function openReincarnation(){
+  const cur=ERAS[state.era],next=cur.next!==null?ERAS[cur.next]:null;
+  document.getElementById('reincarIcon').textContent=next?.icon||'🌌';
+  document.getElementById('reincarEraName').textContent=next?`次の時代: ${next.name}`:'これが最終時代';
+  document.getElementById('reincarDesc').textContent=next?.desc||'究極の文明に到達した。';
+  document.getElementById('reincarBonus').textContent=next?`ボーナス: ${next.bonus}`:'';
+  const reqs=cur.requirement;let reqText='転生条件:\n';
+  if(reqs.recipes)reqText+=`レシピ発見: ${reqs.recipes.join(', ')}\n`;
+  if(reqs.items)for(const[k,v]of Object.entries(reqs.items)){const have=state.RES[k]||0;reqText+=`${MATS[k]?.icon}${MATS[k]?.name}: ${have}/${v} ${have>=v?'✅':'❌'}\n`;}
+  document.getElementById('reincarReqs').textContent=reqText;
+  document.getElementById('reincarBtn').disabled=!canReincarnate();
+  document.getElementById('reincarModal').classList.add('show');
+}
+function canReincarnate(){
+  const cur=ERAS[state.era];if(cur.next===null)return false;const reqs=cur.requirement;
+  if(reqs.recipes)for(const rid of reqs.recipes){if(!state.discoveredRecipes.has(rid))return false;}
+  if(reqs.items)for(const[k,v]of Object.entries(reqs.items)){if((state.RES[k]||0)<v)return false;}
+  return true;
+}
+function doReincarnate(){
+  if(!canReincarnate())return;
+  const cur=ERAS[state.era];state.era=cur.next;state.eraCount++;state.power=200;state.maxPower=500+state.era*200;
+  Object.keys(state.RES).forEach(k=>state.RES[k]=0);
+  machines.length=0;items.length=0;Object.keys(grid).forEach(k=>delete grid[k]);Object.keys(resourceNodes).forEach(k=>delete resourceNodes[k]);Object.keys(checkedNodes).forEach(k=>delete checkedNodes[k]);
+  notify(`🌀 転生！ ${ERAS[state.era].icon}${ERAS[state.era].name} に突入！`,'era');closeReincarnation();saveGame();
+}
+function closeReincarnation(){document.getElementById('reincarModal').classList.remove('show');}
+
+function notify(msg,type=''){const el=document.getElementById('notifs');const div=document.createElement('div');div.className='notif '+(type||'');div.textContent=msg;el.appendChild(div);setTimeout(()=>{if(div.parentNode)el.removeChild(div);},3000);}
+
+const MAT_COLORS={iron:'#455a6a',coal:'#2a3040',copper:'#6a3510',crystal:'#303070',wood:'#4a3520',stone:'#404048'};
+let drawTick=0;
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  ctx.save();
-  ctx.translate(-camX*CELL, -camY*CELL);
-
-  const startX=Math.floor(camX);
-  const startY=Math.floor(camY);
-
-  for(let x=startX-1;x<startX+COLS+1;x++){
-    for(let y=startY-1;y<startY+ROWS+1;y++){
-      ctx.strokeStyle="#333";
-      ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
-
-      const n=getResource(x,y);
-      if(n){
-        ctx.fillStyle=n.type==="iron"?"#555":"#111";
-        ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
-      }
-    }
-  }
-
-  machines.forEach(m=>{
-    const px=m.x*CELL,py=m.y*CELL;
-    ctx.fillStyle=
-      m.id==='miner'?"#6a3":
-      m.id==='power'?"#a33":
-      m.id==='storage'?"#36a":
-      m.id==='splitter'?"#aa6":"#888";
-
-    ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
-
-    ctx.fillStyle="#fff";
-    if(m.id==='miner') ctx.fillText("⛏",px+15,py+30);
-    if(m.id==='power') ctx.fillText("⚡",px+15,py+30);
-    if(m.id==='storage') ctx.fillText("📦",px+15,py+30);
-    if(m.id==='splitter') ctx.fillText("⇄",px+15,py+30);
-    if(m.id==='conveyor') ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
-  });
-
-  items.forEach(it=>{
-    const px=(it.x+it.dx*it.p)*CELL;
-    const py=(it.y+it.dy*it.p)*CELL;
-    ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
-    ctx.fillRect(px-6,py-3,12,6);
-  });
-
-  ctx.restore();
-
-  drawUI();
-  drawMini();
+  ctx.clearRect(0,0,cw,ch);ctx.save();ctx.scale(zoom,zoom);ctx.translate(-camX*CELL,-camY*CELL);
+  const sx=Math.floor(camX)-1,sy=Math.floor(camY)-1,ex=sx+Math.ceil(cw/CELL/zoom)+2,ey=sy+Math.ceil(ch/CELL/zoom)+2;
+  for(let x=sx;x<ex;x++)for(let y=sy;y<ey;y++){const px=x*CELL,py=y*CELL;ctx.strokeStyle='#1a2535';ctx.strokeRect(px,py,CELL,CELL);const n=getResource(x,y);if(n){ctx.fillStyle=MAT_COLORS[n.type]||'#333';ctx.fillRect(px+1,py+1,CELL-2,CELL-2);if(zoom>0.6){ctx.font=`${CELL*0.4}px serif`;ctx.fillText(MATS[n.type]?.icon||'',px+CELL*0.2,py+CELL*0.65);}}}
+  machines.forEach(m=>{const px=m.x*CELL,py=m.y*CELL;const colors={miner:'#1a3a20',conveyor:'#1a2535',splitter:'#2a2a15',merger:'#152a2a',power:'#2a1515',storage:'#151525',crafter:'#201525'};ctx.fillStyle=colors[m.id]||'#1a2535';ctx.fillRect(px+2,py+2,CELL-4,CELL-4);const borders={miner:'#3a6a30',conveyor:'#2a4060',splitter:'#6a6a20',merger:'#206060',power:'#6a2020',storage:'#202060',crafter:'#602060'};ctx.strokeStyle=borders[m.id]||'#2a4060';ctx.lineWidth=1.5;ctx.strokeRect(px+2,py+2,CELL-4,CELL-4);ctx.lineWidth=1;if(zoom>0.5){const icons={miner:'⛏',power:'⚡',storage:'📦',splitter:'⇄',merger:'⇒',crafter:'🔧'};ctx.font=`${CELL*0.45}px serif`;if(m.id==='conveyor'){ctx.fillStyle='#aabbcc';ctx.font=`bold ${CELL*0.5}px monospace`;ctx.fillText(DIR_CHARS[m.dir],px+CELL*0.25,py+CELL*0.65);}else ctx.fillText(icons[m.id]||'?',px+CELL*0.15,py+CELL*0.65);if(m.id==='crafter'&&m.craftAssign&&zoom>0.7){const rec=RECIPES.find(r=>r.id===m.craftAssign);if(rec){ctx.fillStyle='#aabbcc';ctx.font=`${CELL*0.22}px sans-serif`;ctx.fillText(MATS[rec.output]?.icon||'',px+CELL*0.6,py+CELL*0.45);}}}});
+  items.forEach(it=>{const mat=MATS[it.type];const px=(it.x+it.dx*it.p)*CELL,py=(it.y+it.dy*it.p)*CELL;if(zoom>0.4){ctx.font=`${CELL*0.35}px serif`;ctx.fillText(mat?.icon||'●',px-CELL*0.2,py+CELL*0.12);}else{ctx.fillStyle=mat?.color||'#888';ctx.fillRect(px-3,py-3,6,6);}});
+  ctx.restore();mctx.clearRect(0,0,160,100);const SX=160/100,SY=100/60;for(let i=0;i<machines.length;i++){const m=machines[i];const cols={miner:'#3a6a30',power:'#6a2020',storage:'#202060',conveyor:'#2a4060',crafter:'#602060'};mctx.fillStyle=cols[m.id]||'#aaa';mctx.fillRect(m.x*SX,m.y*SY,Math.max(2,SX),Math.max(2,SY));}mctx.strokeStyle='rgba(0,212,255,0.5)';mctx.strokeRect(camX*SX,camY*SY,(cw/CELL/zoom)*SX,(ch/CELL/zoom)*SY);
+  drawTick++;if(drawTick%4===0)updateUI();
 }
 
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+function updateUI(){
+  let html='';for(const[k,v]of Object.entries(state.RES)){if(v>0)html+=`<div class="res-row"><span>${MATS[k]?.icon}${MATS[k]?.name}</span><span>${v}</span></div>`;}
+  document.getElementById('res-display').innerHTML=html||'<div style="color:var(--text2);font-size:11px">まだ資源がありません</div>';
+  document.getElementById('powerVal').textContent=Math.floor(state.power)+'/'+state.maxPower;
+  document.getElementById('power-fill').style.width=(state.power/state.maxPower*100)+'%';
+  document.getElementById('statTime').textContent=state.playTime<60?state.playTime+'s':Math.floor(state.playTime/60)+'m'+(state.playTime%60)+'s';
+  document.getElementById('statProd').textContent=state.totalProduced;
+  document.getElementById('statMach').textContent=machines.length;
+  document.getElementById('era-name').textContent=ERAS[state.era].name;
+  updateDiscoveryCount();
 }
 
-selectTool('miner');
-loop();
+function saveGame(){const data={state:{...state,discoveredRecipes:[...state.discoveredRecipes]},machines:machines.map(m=>({...m})),camX,camY,zoom};localStorage.setItem('factoryNexus',JSON.stringify(data));notify('💾 セーブしました');}
+function loadGame(){const raw=localStorage.getItem('factoryNexus');if(!raw)return;try{const data=JSON.parse(raw);const s=data.state;state.era=s.era||0;state.eraCount=s.eraCount||0;state.power=s.power||100;state.maxPower=s.maxPower||500;state.RES={};Object.keys(MATS).forEach(k=>state.RES[k]=s.RES?.[k]||0);state.discoveredRecipes=new Set(s.discoveredRecipes||[]);state.playTime=s.playTime||0;state.totalProduced=s.totalProduced||0;state.recentDisc=s.recentDisc||[];machines.length=0;items.length=0;Object.keys(grid).forEach(k=>delete grid[k]);(data.machines||[]).forEach(m=>{machines.push(m);grid[gkey(m.x,m.y)]=m;});camX=data.camX||0;camY=data.camY||0;zoom=data.zoom||1;document.getElementById('recent-disc').innerHTML=state.recentDisc.map(d=>`<div style="color:var(--gold)">${d}</div>`).join('');updateDiscoveryCount();}catch(e){console.error('Load failed',e);}}
+function resetGame(){if(!confirm('全データを削除しますか？'))return;localStorage.removeItem('factoryNexus');location.reload();}
+
+setInterval(()=>saveGame(),60000);
+function loop(){update();draw();requestAnimationFrame(loop);}
+loadGame();selectTool('miner');updateDiscoveryCount();loop();
+setTimeout(()=>notify('⛏ 採掘機を資源マスに設置しよう！'),500);
+setTimeout(()=>notify('📦 倉庫とコンベアをつないで資源を集めよう'),3000);
+setTimeout(()=>notify('⚗ レシピ実験台で素材を並べてレシピを発見！'),6000);
 </script>
-
 </body>
 </html>
