@@ -3,32 +3,93 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Factory Lite+ Ultra Lite</title>
+<title>Factory Lite+</title>
 
 <style>
 body{margin:0;background:#1a1a18;color:#eee;font-family:sans-serif}
-#ui{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#111;border-bottom:2px solid #333}
-button{padding:8px 10px;border-radius:8px;border:none;background:#333;color:#fff}
+
+#ui{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:8px;
+  background:#111;
+  border-bottom:2px solid #333;
+}
+
+button{
+  padding:8px 10px;
+  border-radius:8px;
+  border:none;
+  background:#333;
+  color:#fff;
+}
+
 .active{background:#5a5}
-#panel{position:fixed;right:10px;top:60px;background:#000c;padding:12px;border-radius:10px;font-size:14px;border:1px solid #333}
-canvas{display:block;margin:auto;background:#222;touch-action:none}
-#settings{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border-radius:12px;display:none;border:1px solid #555}
-#mini{position:fixed;right:10px;bottom:10px;width:150px;height:100px;background:#000a;border:1px solid #555}
+
+#panel{
+  position:fixed;
+  right:10px;
+  top:60px;
+  background:#000c;
+  padding:12px;
+  border-radius:10px;
+  font-size:14px;
+  border:1px solid #333;
+}
+
+canvas{
+  display:block;
+  margin:auto;
+  background:#222;
+  touch-action:none;
+}
+
+#settings{
+position:fixed;
+left:50%;
+top:50%;
+transform:translate(-50%,-50%);
+background:#111;
+padding:20px;
+border-radius:12px;
+display:none;
+border:1px solid #555;
+}
+
+/* ミニマップ */
+#mini{
+position:fixed;
+right:10px;
+bottom:10px;
+width:150px;
+height:100px;
+background:#000a;
+border:1px solid #555;
+}
 </style>
 </head>
 
 <body>
 
 <div id="ui">
-  <button onclick="selectTool('miner')" id="btn-miner">⛏</button>
-  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡</button>
-  <button onclick="selectTool('splitter')" id="btn-splitter">⇄</button>
-  <button onclick="selectTool('power')" id="btn-power">⚡</button>
-  <button onclick="selectTool('storage')" id="btn-storage">📦</button>
-  <button onclick="selectTool('delete')" id="btn-delete">🗑</button>
+  <button onclick="selectTool('miner')" id="btn-miner">⛏ 採掘</button>
+  <button onclick="selectTool('conveyor')" id="btn-conveyor">➡ コンベア</button>
+  <button onclick="selectTool('splitter')" id="btn-splitter">⇄ 分岐</button>
+  <button onclick="selectTool('power')" id="btn-power">⚡ 発電</button>
+  <button onclick="selectTool('storage')" id="btn-storage">📦 倉庫</button>
+  <button onclick="selectTool('delete')" id="btn-delete">🗑 削除</button>
+  <button onclick="toggleSettings()">⚙ 設定</button>
 </div>
 
 <div id="panel"></div>
+
+<div id="settings">
+  <h3>設定</h3>
+  <button onclick="saveGame()">💾 保存</button><br><br>
+  <button onclick="resetGame()">🗑 データ削除</button><br><br>
+  <button onclick="toggleSettings()">閉じる</button>
+</div>
 
 <canvas id="c"></canvas>
 <canvas id="mini"></canvas>
@@ -44,31 +105,23 @@ const ctx=canvas.getContext('2d');
 const mini=document.getElementById('mini');
 const mctx=mini.getContext('2d');
 
-canvas.width=innerWidth;
-canvas.height=innerHeight-60;
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight-60;
 
-ctx.font="16px sans-serif";
+mini.width=150;
+mini.height=100;
 
 let camX=0, camY=0;
+
 let selected='miner';
 
 const grid={}, machines=[], items=[];
 const RES={iron:0,coal:0};
 let power=50;
 
-// ===== キャッシュ制限 =====
+// ===== 超軽量 無限マップ =====
 const resourceNodes={};
 const checkedNodes={};
-const MAX_CACHE=5000;
-
-function cleanupCache(){
-  const keys=Object.keys(checkedNodes);
-  if(keys.length>MAX_CACHE){
-    for(let i=0;i<1000;i++){
-      delete checkedNodes[keys[i]];
-    }
-  }
-}
 
 function rkey(x,y){return x+","+y}
 
@@ -76,17 +129,23 @@ function rand(x,y){
   return Math.abs(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
 }
 
+// ★5マス塊保証
 function generateCluster(x,y,type){
   const cluster=[{x,y}];
+
   while(cluster.length<5){
-    const base=cluster[Math.floor(Math.random()*cluster.length)];
+    const base=cluster[Math.floor(rand(cluster.length,x)*cluster.length)];
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    const d=dirs[Math.floor(Math.random()*4)];
-    const nx=base.x+d[0], ny=base.y+d[1];
+    const d=dirs[Math.floor(rand(base.x,base.y)*4)];
+
+    const nx=base.x+d[0];
+    const ny=base.y+d[1];
+
     if(!cluster.find(n=>n.x===nx&&n.y===ny)){
       cluster.push({x:nx,y:ny});
     }
   }
+
   cluster.forEach(n=>{
     resourceNodes[rkey(n.x,n.y)]={x:n.x,y:n.y,type};
   });
@@ -94,21 +153,48 @@ function generateCluster(x,y,type){
 
 function getResource(x,y){
   const k=rkey(x,y);
+
   if(resourceNodes[k]) return resourceNodes[k];
   if(checkedNodes[k]) return null;
 
   checkedNodes[k]=true;
 
-  if(rand(x,y)>0.995){
-    const type=rand(x+100,y+100)>0.5?"iron":"coal";
+  if(rand(x,y) > 0.995){
+    const type = rand(x+100,y+100) > 0.5 ? "iron":"coal";
     generateCluster(x,y,type);
   }
 
-  cleanupCache();
-  return resourceNodes[k]||null;
+  // 軽量化：キャッシュ肥大防止
+  if(Object.keys(checkedNodes).length>5000){
+    for(const key in checkedNodes){ delete checkedNodes[key]; break; }
+  }
+
+  return resourceNodes[k] || null;
+}
+// =========================
+
+// ===== 設定 =====
+function toggleSettings(){
+  const el=document.getElementById("settings");
+  el.style.display = el.style.display==="none" ? "block" : "none";
 }
 
-// ===== 軽量 countItems =====
+function saveGame(){
+  localStorage.setItem("factorySave",JSON.stringify({
+    machines,items,RES,power,camX,camY
+  }));
+}
+
+function resetGame(){
+  localStorage.clear();
+  location.reload();
+}
+// =================
+
+function key(x,y){return x+","+y}
+function get(x,y){return grid[key(x,y)]}
+
+// 軽量化版
 function countItems(x,y){
   let c=0;
   for(let i=0;i<items.length;i++){
@@ -118,59 +204,340 @@ function countItems(x,y){
   return c;
 }
 
-function key(x,y){return x+","+y}
-function get(x,y){return grid[key(x,y)]}
-
 function selectTool(t){
   selected=t;
   document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
-  const el=document.getElementById("btn-"+t);
-  if(el) el.classList.add("active");
+  document.getElementById("btn-"+t)?.classList.add("active");
 }
 
 function place(x,y){
   if(get(x,y)) return;
+
   const node=getResource(x,y);
   if(selected==='miner' && !node) return;
 
-  const m={id:selected,x,y,dir:0,cool:0,type:node?node.type:"iron",toggle:0};
+  const m={
+    id:selected,x,y,dir:0,cool:0,
+    type:node?.type||"iron",
+    toggle:0
+  };
+
   machines.push(m);
   grid[key(x,y)]=m;
 }
 
-// ===== 描画最適化 =====
-let uiFrame=0;
-let miniFrame=0;
-
-function drawUI(){
-  uiFrame++;
-  if(uiFrame%10!==0) return;
-  document.getElementById("panel").innerHTML=
-    "鉄:"+RES.iron+" 石炭:"+RES.coal+" ⚡"+power;
+function remove(x,y){
+  const m=get(x,y);
+  if(!m) return;
+  delete grid[key(x,y)];
+  machines.splice(machines.indexOf(m),1);
 }
 
+function rotate(m){m.dir=(m.dir+1)%4}
+
+function getPos(e){
+  const r=canvas.getBoundingClientRect();
+  return {
+    x:Math.floor((e.clientX-r.left)/CELL + camX),
+    y:Math.floor((e.clientY-r.top)/CELL + camY)
+  };
+}
+
+// ===== ミニマップクリック移動 =====
+mini.addEventListener("click",e=>{
+  const rect=mini.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)/rect.width;
+  const my=(e.clientY-rect.top)/rect.height;
+
+  camX = mx * 200 - COLS/2;
+  camY = my * 200 - ROWS/2;
+});
+
+// ===== PC操作 =====
+let dragging=false;
+let pressTimer=null;
+let startX,startY;
+let moved=false;
+
+let isPanning=false;
+let panStartX, panStartY;
+
+canvas.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(e.button===1){
+    isPanning=true;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
+  const p=getPos(e);
+  dragging=true;
+  moved=false;
+
+  startX=p.x;
+  startY=p.y;
+
+  pressTimer=setTimeout(()=>remove(p.x,p.y),400);
+});
+
+canvas.addEventListener("pointermove",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(isPanning){
+    const dx=(e.clientX-panStartX)/CELL;
+    const dy=(e.clientY-panStartY)/CELL;
+    camX-=dx;
+    camY-=dy;
+    panStartX=e.clientX;
+    panStartY=e.clientY;
+    return;
+  }
+
+  if(!dragging) return;
+
+  const p=getPos(e);
+
+  if(Math.abs(p.x-startX)+Math.abs(p.y-startY)>=1){
+    moved=true;
+    clearTimeout(pressTimer);
+  }
+});
+
+canvas.addEventListener("pointerup",e=>{
+  if(e.pointerType==="touch") return;
+
+  if(isPanning){
+    isPanning=false;
+    return;
+  }
+
+  dragging=false;
+  clearTimeout(pressTimer);
+
+  if(!moved){
+    handleInput(e);
+  }
+});
+
+// ===== スマホ操作 =====
+let singlePan=false;
+let touchMoved=false;
+let lastTouchX=0,lastTouchY=0;
+
+let lastMidX=0,lastMidY=0,lastDist=0;
+
+canvas.addEventListener("touchstart",e=>{
+  if(e.touches.length===1){
+    singlePan=true;
+    touchMoved=false;
+    lastTouchX=e.touches[0].clientX;
+    lastTouchY=e.touches[0].clientY;
+  }
+
+  if(e.touches.length===2){
+    singlePan=false;
+
+    const t1=e.touches[0];
+    const t2=e.touches[1];
+
+    lastMidX=(t1.clientX+t2.clientX)/2;
+    lastMidY=(t1.clientY+t2.clientY)/2;
+
+    lastDist=Math.hypot(t1.clientX-t2.clientX,t1.clientY-t2.clientY);
+  }
+});
+
+canvas.addEventListener("touchmove",e=>{
+  if(singlePan && e.touches.length===1){
+    const t=e.touches[0];
+
+    const dx=t.clientX-lastTouchX;
+    const dy=t.clientY-lastTouchY;
+
+    if(Math.abs(dx)+Math.abs(dy)>5){
+      touchMoved=true;
+      camX-=dx/CELL;
+      camY-=dy/CELL;
+    }
+
+    lastTouchX=t.clientX;
+    lastTouchY=t.clientY;
+    return;
+  }
+
+  if(e.touches.length===2){
+    e.preventDefault();
+
+    const t1=e.touches[0];
+    const t2=e.touches[1];
+
+    const midX=(t1.clientX+t2.clientX)/2;
+    const midY=(t1.clientY+t2.clientY)/2;
+
+    camX-=(midX-lastMidX)/CELL;
+    camY-=(midY-lastMidY)/CELL;
+
+    lastMidX=midX;
+    lastMidY=midY;
+
+    const dist=Math.hypot(t1.clientX-t2.clientX,t1.clientY-t2.clientY);
+    let zoom=dist/lastDist;
+    let newCell=CELL*zoom;
+
+    if(newCell>25 && newCell<120){
+      CELL=newCell;
+    }
+
+    lastDist=dist;
+  }
+});
+
+canvas.addEventListener("touchend",e=>{
+  if(!touchMoved && singlePan){
+    const t=e.changedTouches[0];
+    handleInput({clientX:t.clientX,clientY:t.clientY});
+  }
+
+  if(e.touches.length===0){
+    singlePan=false;
+    lastDist=0;
+  }
+});
+
+function handleInput(e){
+  const p=getPos(e);
+  const m=get(p.x,p.y);
+
+  if(selected==='delete'){ remove(p.x,p.y); return; }
+  if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
+  else place(p.x,p.y);
+}
+
+// ===== ゲーム本体 =====
+function spawn(m){
+  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
+  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
+}
+
+function nextTile(it){
+  return get(Math.floor(it.x+it.dx),Math.floor(it.y+it.dy));
+}
+
+function update(){
+  machines.forEach(m=>{
+    if(m.cool>0) m.cool--;
+    if(m.id==='miner' && power>0 && m.cool===0){
+      spawn(m); m.cool=40; power--;
+    }
+    if(m.id==='power'){
+      items.forEach(it=>{
+        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
+          if(it.type==='coal'){ power+=10; it.dead=true; }
+        }
+      });
+    }
+    if(m.id==='storage'){
+      items.forEach(it=>{
+        if(Math.floor(it.x)===m.x && Math.floor(it.y)===m.y){
+          RES[it.type]++; it.dead=true;
+        }
+      });
+    }
+  });
+
+  items.forEach(it=>{
+    it.p+=0.05;
+    if(it.p>=1){
+      const next=nextTile(it);
+      if(!next){ it.p=0.99; return; }
+      const nx=Math.floor(it.x+it.dx);
+      const ny=Math.floor(it.y+it.dy);
+      if(countItems(nx,ny)>=MAX_PER_TILE){ it.p=0.99; return; }
+
+      it.x+=it.dx; it.y+=it.dy; it.p=0;
+
+      if(next.id==='conveyor'){
+        const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
+        it.dx=d[0]; it.dy=d[1];
+      }
+      if(next.id==='splitter'){
+        const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
+        const side=next.toggle?1:-1;
+        next.toggle=1-next.toggle;
+        const d=dirs[(next.dir+side+4)%4];
+        it.dx=d[0]; it.dy=d[1];
+      }
+    }
+  });
+
+  // 軽量削除
+  for(let i=items.length-1;i>=0;i--){
+    if(items[i].dead){
+      items[i]=items[items.length-1];
+      items.pop();
+    }
+  }
+}
+
+let uiTick=0;
+
+function drawUI(){
+  uiTick++;
+  if(uiTick%10!==0) return;
+
+  document.getElementById("panel").innerHTML=
+    "<b>資源</b><br>"+
+    "🪨 鉄: "+RES.iron+"<br>"+
+    "⚫ 石炭: "+RES.coal+"<br><br>"+
+    "<b>電力</b><br>"+
+    "⚡ "+power;
+}
+
+// ===== 軽量ミニマップ（間引き） =====
+let miniFrame=0;
 function drawMini(){
   miniFrame++;
-  if(miniFrame%10!==0) return;
+  if(miniFrame%6!==0) return;
 
   mctx.clearRect(0,0,mini.width,mini.height);
 
-  for(let i=0;i<machines.length;i+=3){
+  const scaleX=mini.width/200;
+  const scaleY=mini.height/200;
+
+  for(let i=0;i<machines.length;i+=2){
     const m=machines[i];
-    mctx.fillRect(m.x*0.5,m.y*0.5,2,2);
+    mctx.fillStyle=
+      m.id==='miner'?"#6a3":
+      m.id==='power'?"#a33":
+      m.id==='storage'?"#36a":"#aaa";
+
+    mctx.fillRect(m.x*scaleX,m.y*scaleY,2,2);
   }
+
+  mctx.strokeStyle="#fff";
+  mctx.strokeRect(
+    camX*scaleX,
+    camY*scaleY,
+    COLS*scaleX,
+    ROWS*scaleY
+  );
 }
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   ctx.save();
   ctx.translate(-camX*CELL, -camY*CELL);
 
-  const startX=camX|0;
-  const startY=camY|0;
+  const startX=Math.floor(camX);
+  const startY=Math.floor(camY);
 
-  for(let x=startX-1;x<startX+COLS;x++){
-    for(let y=startY-1;y<startY+ROWS;y++){
+  for(let x=startX-1;x<startX+COLS+1;x++){
+    for(let y=startY-1;y<startY+ROWS+1;y++){
+      ctx.strokeStyle="#333";
       ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
 
       const n=getResource(x,y);
@@ -181,15 +548,30 @@ function draw(){
     }
   }
 
-  // 近くのだけ描画
-  for(let i=0;i<machines.length;i++){
-    const m=machines[i];
-    if(Math.abs(m.x-camX)>COLS) continue;
-    if(Math.abs(m.y-camY)>ROWS) continue;
+  machines.forEach(m=>{
+    const px=m.x*CELL,py=m.y*CELL;
+    ctx.fillStyle=
+      m.id==='miner'?"#6a3":
+      m.id==='power'?"#a33":
+      m.id==='storage'?"#36a":
+      m.id==='splitter'?"#aa6":"#888";
 
-    ctx.fillStyle="#6a3";
-    ctx.fillRect(m.x*CELL+5,m.y*CELL+5,CELL-10,CELL-10);
-  }
+    ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
+
+    ctx.fillStyle="#fff";
+    if(m.id==='miner') ctx.fillText("⛏",px+15,py+30);
+    if(m.id==='power') ctx.fillText("⚡",px+15,py+30);
+    if(m.id==='storage') ctx.fillText("📦",px+15,py+30);
+    if(m.id==='splitter') ctx.fillText("⇄",px+15,py+30);
+    if(m.id==='conveyor') ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
+  });
+
+  items.forEach(it=>{
+    const px=(it.x+it.dx*it.p)*CELL;
+    const py=(it.y+it.dy*it.p)*CELL;
+    ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
+    ctx.fillRect(px-6,py-3,12,6);
+  });
 
   ctx.restore();
 
@@ -198,6 +580,7 @@ function draw(){
 }
 
 function loop(){
+  update();
   draw();
   requestAnimationFrame(loop);
 }
