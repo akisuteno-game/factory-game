@@ -189,7 +189,7 @@ function resetGame(){
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
 
-// ★軽量化（filter廃止）
+// ★重い原因 → filterをやめて軽量化
 function countItems(x,y){
   let c=0;
   for(let i=0;i<items.length;i++){
@@ -238,92 +238,6 @@ function getPos(e){
   };
 }
 
-// ===== ミニマップクリック移動 =====
-mini.addEventListener("click",e=>{
-  const rect=mini.getBoundingClientRect();
-  const mx=(e.clientX-rect.left)/rect.width;
-  const my=(e.clientY-rect.top)/rect.height;
-
-  camX = mx * 200 - COLS/2;
-  camY = my * 200 - ROWS/2;
-});
-
-// ===== ゲーム本体 =====
-function spawn(m){
-  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
-  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
-  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
-}
-
-function nextTile(it){
-  return get((it.x+it.dx)|0,(it.y+it.dy)|0);
-}
-
-function update(){
-  for(let i=0;i<machines.length;i++){
-    const m=machines[i];
-
-    if(m.cool>0) m.cool--;
-
-    if(m.id==='miner' && power>0 && m.cool===0){
-      spawn(m); m.cool=40; power--;
-    }
-
-    if(m.id==='power'){
-      for(let j=0;j<items.length;j++){
-        const it=items[j];
-        if((it.x|0)===m.x && (it.y|0)===m.y){
-          if(it.type==='coal'){ power+=10; it.dead=true; }
-        }
-      }
-    }
-
-    if(m.id==='storage'){
-      for(let j=0;j<items.length;j++){
-        const it=items[j];
-        if((it.x|0)===m.x && (it.y|0)===m.y){
-          RES[it.type]++; it.dead=true;
-        }
-      }
-    }
-  }
-
-  for(let i=0;i<items.length;i++){
-    const it=items[i];
-
-    it.p+=0.05;
-
-    if(it.p>=1){
-      const next=nextTile(it);
-      if(!next){ it.p=0.99; continue; }
-
-      const nx=(it.x+it.dx)|0;
-      const ny=(it.y+it.dy)|0;
-
-      if(countItems(nx,ny)>=MAX_PER_TILE){ it.p=0.99; continue; }
-
-      it.x+=it.dx; it.y+=it.dy; it.p=0;
-
-      if(next.id==='conveyor'){
-        const d=[[1,0],[0,1],[-1,0],[0,-1]][next.dir];
-        it.dx=d[0]; it.dy=d[1];
-      }
-
-      if(next.id==='splitter'){
-        const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
-        const side=next.toggle?1:-1;
-        next.toggle=1-next.toggle;
-        const d=dirs[(next.dir+side+4)%4];
-        it.dx=d[0]; it.dy=d[1];
-      }
-    }
-  }
-
-  for(let i=items.length-1;i>=0;i--){
-    if(items[i].dead) items.splice(i,1);
-  }
-}
-
 // ===== ミニマップ軽量化 =====
 let miniFrame=0;
 function drawMini(){
@@ -346,20 +260,27 @@ function drawMini(){
   }
 
   mctx.strokeStyle="#fff";
-  mctx.strokeRect(camX*scaleX,camY*scaleY,COLS*scaleX,ROWS*scaleY);
+  mctx.strokeRect(
+    camX*scaleX,
+    camY*scaleY,
+    COLS*scaleX,
+    ROWS*scaleY
+  );
 }
 
+// ===== 描画軽量化（遠距離省略） =====
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
   ctx.translate(-camX*CELL, -camY*CELL);
 
-  const startX=camX|0;
-  const startY=camY|0;
+  const startX=Math.floor(camX);
+  const startY=Math.floor(camY);
 
   for(let x=startX-1;x<startX+COLS+1;x++){
     for(let y=startY-1;y<startY+ROWS+1;y++){
+      ctx.strokeStyle="#333";
       ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
 
       const n=getResource(x,y);
@@ -371,6 +292,8 @@ function draw(){
   }
 
   machines.forEach(m=>{
+    if(Math.abs(m.x-camX)>COLS || Math.abs(m.y-camY)>ROWS) return;
+
     const px=m.x*CELL,py=m.y*CELL;
     ctx.fillStyle=
       m.id==='miner'?"#6a3":
