@@ -476,21 +476,26 @@ function drawUI(){
     "⚡ "+power;
 }
 
-// ===== ミニマップ描画 =====
+// ===== 軽量ミニマップ（間引き） =====
+let miniFrame=0;
 function drawMini(){
+  miniFrame++;
+  if(miniFrame%6!==0) return; // ←ここが軽量化の核心
+
   mctx.clearRect(0,0,mini.width,mini.height);
 
   const scaleX=mini.width/200;
   const scaleY=mini.height/200;
 
-  machines.forEach(m=>{
+  for(let i=0;i<machines.length;i+=2){ // 半分だけ描画
+    const m=machines[i];
     mctx.fillStyle=
       m.id==='miner'?"#6a3":
       m.id==='power'?"#a33":
       m.id==='storage'?"#36a":"#aaa";
 
     mctx.fillRect(m.x*scaleX,m.y*scaleY,2,2);
-  });
+  }
 
   mctx.strokeStyle="#fff";
   mctx.strokeRect(
