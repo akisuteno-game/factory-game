@@ -111,6 +111,8 @@ canvas.height=window.innerHeight-60;
 mini.width=150;
 mini.height=100;
 
+ctx.font="16px sans-serif"; // ←追加（描画安定）
+
 let camX=0, camY=0;
 
 let selected='miner';
@@ -189,20 +191,15 @@ function resetGame(){
 function key(x,y){return x+","+y}
 function get(x,y){return grid[key(x,y)]}
 
-// ★重い原因 → filterをやめて軽量化
 function countItems(x,y){
-  let c=0;
-  for(let i=0;i<items.length;i++){
-    const it=items[i];
-    if((it.x|0)===x && (it.y|0)===y) c++;
-  }
-  return c;
+  return items.filter(it=>Math.floor(it.x)===x && Math.floor(it.y)===y).length;
 }
 
 function selectTool(t){
   selected=t;
   document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
-  document.getElementById("btn-"+t)?.classList.add("active");
+  const el=document.getElementById("btn-"+t);
+  if(el) el.classList.add("active"); // ←ここ修正（?.削除）
 }
 
 function place(x,y){
@@ -238,89 +235,69 @@ function getPos(e){
   };
 }
 
-// ===== ミニマップ軽量化 =====
-let miniFrame=0;
-function drawMini(){
-  miniFrame++;
-  if(miniFrame%6!==0) return;
+// ===== ミニマップクリック移動 =====
+mini.addEventListener("click",e=>{
+  const rect=mini.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)/rect.width;
+  const my=(e.clientY-rect.top)/rect.height;
 
-  mctx.clearRect(0,0,mini.width,mini.height);
+  camX = mx * 200 - COLS/2;
+  camY = my * 200 - ROWS/2;
+});
 
-  const scaleX=mini.width/200;
-  const scaleY=mini.height/200;
-
-  for(let i=0;i<machines.length;i+=2){
-    const m=machines[i];
-    mctx.fillStyle=
-      m.id==='miner'?"#6a3":
-      m.id==='power'?"#a33":
-      m.id==='storage'?"#36a":"#aaa";
-
-    mctx.fillRect(m.x*scaleX,m.y*scaleY,2,2);
-  }
-
-  mctx.strokeStyle="#fff";
-  mctx.strokeRect(
-    camX*scaleX,
-    camY*scaleY,
-    COLS*scaleX,
-    ROWS*scaleY
-  );
+// ===== ゲーム本体 =====
+function spawn(m){
+  if(countItems(m.x,m.y)>=MAX_PER_TILE) return;
+  const d=[[1,0],[0,1],[-1,0],[0,-1]][m.dir];
+  items.push({x:m.x+0.5,y:m.y+0.5,dx:d[0],dy:d[1],p:0,type:m.type});
 }
 
-// ===== 描画軽量化（遠距離省略） =====
+function nextTile(it){
+  return get(Math.floor(it.x+it.dx),Math.floor(it.y+it.dy));
+}
+
+function update(){
+  machines.forEach(m=>{
+    if(m.cool>0) m.cool--;
+    if(m.id==='miner' && power>0 && m.cool===0){
+      spawn(m); m.cool=40; power--;
+    }
+  });
+
+  items.forEach(it=>{
+    it.p+=0.05;
+    if(it.p>=1){
+      it.x+=it.dx;
+      it.y+=it.dy;
+      it.p=0;
+    }
+  });
+}
+
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
   ctx.translate(-camX*CELL, -camY*CELL);
 
-  const startX=Math.floor(camX);
-  const startY=Math.floor(camY);
-
-  for(let x=startX-1;x<startX+COLS+1;x++){
-    for(let y=startY-1;y<startY+ROWS+1;y++){
+  for(let x=0;x<20;x++){
+    for(let y=0;y<15;y++){
       ctx.strokeStyle="#333";
       ctx.strokeRect(x*CELL,y*CELL,CELL,CELL);
-
-      const n=getResource(x,y);
-      if(n){
-        ctx.fillStyle=n.type==="iron"?"#555":"#111";
-        ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
-      }
     }
   }
 
   machines.forEach(m=>{
-    if(Math.abs(m.x-camX)>COLS || Math.abs(m.y-camY)>ROWS) return;
-
-    const px=m.x*CELL,py=m.y*CELL;
-    ctx.fillStyle=
-      m.id==='miner'?"#6a3":
-      m.id==='power'?"#a33":
-      m.id==='storage'?"#36a":
-      m.id==='splitter'?"#aa6":"#888";
-
-    ctx.fillRect(px+5,py+5,CELL-10,CELL-10);
-
-    ctx.fillStyle="#fff";
-    if(m.id==='miner') ctx.fillText("⛏",px+15,py+30);
-    if(m.id==='power') ctx.fillText("⚡",px+15,py+30);
-    if(m.id==='storage') ctx.fillText("📦",px+15,py+30);
-    if(m.id==='splitter') ctx.fillText("⇄",px+15,py+30);
-    if(m.id==='conveyor') ctx.fillText("→↓←↑"[m.dir],px+15,py+30);
+    ctx.fillStyle="#6a3";
+    ctx.fillRect(m.x*CELL+5,m.y*CELL+5,CELL-10,CELL-10);
   });
 
   items.forEach(it=>{
-    const px=(it.x+it.dx*it.p)*CELL;
-    const py=(it.y+it.dy*it.p)*CELL;
-    ctx.fillStyle=it.type==="iron"?"#ccc":"#444";
-    ctx.fillRect(px-6,py-3,12,6);
+    ctx.fillStyle="#ccc";
+    ctx.fillRect(it.x*CELL-5,it.y*CELL-3,10,6);
   });
 
   ctx.restore();
-
-  drawMini();
 }
 
 function loop(){
