@@ -587,6 +587,45 @@ function loop(){
 
 selectTool('miner');
 loop();
+  // ===== 入力バグ修正パッチ（追加のみ・既存コード無変更） =====
+
+// クリックで確実に設置
+canvas.addEventListener("click",e=>{
+  const p=getPos(e);
+  const m=get(p.x,p.y);
+
+  if(selected==='delete'){ remove(p.x,p.y); return; }
+  if(m && (m.id==='conveyor'||m.id==='splitter')) rotate(m);
+  else place(p.x,p.y);
+});
+
+// 左ドラッグでスクロール
+let dragCamFix=false;
+let lastXFix=0,lastYFix=0;
+
+canvas.addEventListener("mousedown",e=>{
+  if(e.button!==0) return;
+  dragCamFix=true;
+  lastXFix=e.clientX;
+  lastYFix=e.clientY;
+});
+
+canvas.addEventListener("mousemove",e=>{
+  if(!dragCamFix) return;
+
+  const dx=(e.clientX-lastXFix)/CELL;
+  const dy=(e.clientY-lastYFix)/CELL;
+
+  camX-=dx;
+  camY-=dy;
+
+  lastXFix=e.clientX;
+  lastYFix=e.clientY;
+});
+
+canvas.addEventListener("mouseup",()=>{
+  dragCamFix=false;
+});
 </script>
 
 </body>
