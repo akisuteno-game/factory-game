@@ -257,7 +257,6 @@ const ERAS=[
   {id:3,name:'魔法文明',icon:'🔮',desc:'技術と魔法が融合する時代。',bonus:'全生産×3、魔力素材解放',bonusMult:{mineSpeed:3.0,conveyorSpeed:2.0,craftMult:3},next:4,requirement:{items:{philosopher:3},recipes:['philosopher','timepiece']}},
   {id:4,name:'次元越え',icon:'🌌',desc:'時空を超えた究極の文明。',bonus:'全ての生産が最大化',bonusMult:{mineSpeed:5.0,conveyorSpeed:3.0,craftMult:5},next:null,requirement:{items:{portal:1},recipes:['portal']}},
 ];
-  
   let state={era:0,eraCount:0,power:100,maxPower:500,RES:{},discoveredRecipes:new Set(),playTime:0,totalProduced:0,recentDisc:[]};
 Object.keys(MATS).forEach(k=>state.RES[k]=0);
 const machines=[],items=[],grid={};
